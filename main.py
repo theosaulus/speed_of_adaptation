@@ -1,29 +1,38 @@
+import argparse
+import yaml
 import torch
-from utils.config_loader import load_config
-from data.data_generation import generate_synthetic_dataset
+
 from trainer.trainer import train_model
-from evaluation.evaluator import evaluate_nll, compute_bounds
+from evaluation.evaluator import evaluate_zero_shot
+from data.dataset_creation import build_dataset
 
 def main():
-    config = load_config("config/default.yaml")
-    # Generate synthetic data and ground truth graph
-    dag, D_obs, D_int = generate_synthetic_dataset(
-        num_nodes=config['data']['num_nodes'],
-        graph_type=config['data']['graph_type'],
-        n_obs=config['data']['n_observations'],
-        n_int=config['data']['n_interventions']
-    )
-    
-    # Train the model with the chosen objective and mask configuration.
-    model = train_model(config, dag, D_obs, D_int)
-    
-    # Evaluate on the test set.
-    # Assume we have a test dataset D_test and ground_truth_cpds stored along with the dag.
-    nll = evaluate_nll(model, D_test, ground_truth_cpds)
-    bounds = compute_bounds(model, dag, ground_truth_cpds)
-    
-    print("Test NLL: ", nll)
-    print("Bounds: ", bounds)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, required=True,
+                        help='Path to YAML config file')
+    args = parser.parse_args()
 
-if __name__ == "__main__":
+    # Load configuration
+    with open(args.config) as f:
+        config = yaml.safe_load(f)
+
+    # Train
+    model, graph, order = train_model(config)
+
+    # Build dataset (again) for evaluation
+    dataset = build_dataset(graph,
+                            num_obs=config['data']['num_obs'],
+                            num_int=config['data']['num_int'])
+
+    device = torch.device(config.get('device', 'cpu'))
+    model.to(device).eval()
+
+    # Zero-shot evaluation
+    results = evaluate_zero_shot(model, graph, dataset, order, device)
+
+    print("\n=== Zero-Shot Evaluation ===")
+    for k, v in results.items():
+        print(f"{k:15s}: {v:.4f}")
+
+if __name__ == '__main__':
     main()

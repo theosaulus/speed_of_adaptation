@@ -11,8 +11,8 @@ data:
   num_vars: 20
   output_dim: 10
   graph_type: "ER-1"           # Options: ER-1, ER-2, ER-3
-  n_observations: 1000         # Number of observational samples
-  n_interventions: 1000        # Number of interventional samples
+  num_obs: 1000         # Number of observational samples
+  num_int: 1000        # Number of interventional samples
 
 training:
   epochs: 1000

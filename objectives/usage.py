@@ -14,8 +14,8 @@ with open("config/default.yaml", "r") as file:
 mask = np.random.randint(0, 2, size=(config["data"]["num_vars"], config["data"]["num_vars"]))
 mask = mask.astype(np.float32)  # Ensure mask is of type float32
 model = create_model(config, mask)
-num_obs = config["data"]["n_observations"]  # Number of observational samples
-num_int = config["data"]["n_interventions"]  # Number of interventional samples per variable
+num_obs = config["data"]["num_obs"]  # Number of observational samples
+num_int = config["data"]["num_int"]  # Number of interventional samples per variable
 graph_type = config["data"]["graph_type"]
 
 graph = generate_categorical_graph(

@@ -2,19 +2,46 @@ import torch
 from models.cpdag_utils import compute_cpdag
 
 def fully_connected_mask(num_nodes):
-    mask = torch.ones(num_nodes)
-    mask.fill_diagonal_(0) # remove self-loops
+    mask = torch.ones(num_nodes, num_nodes)
+    mask.fill_diagonal_(0)
     return mask
 
 def causal_mask(true_graph):
-    return true_graph
+    # true_graph is a torch.Tensor or numpy array adjacency
+    return torch.tensor(true_graph, dtype=torch.float32)
 
 def anti_causal_mask(true_graph):
-    return true_graph.transpose(0, 1)
+    return causal_mask(true_graph).transpose(0, 1)
 
 def skeleton_mask(true_graph):
-    return ((true_graph + true_graph.transpose(0, 1)) > 0).float()
+    A = causal_mask(true_graph)
+    return ((A + A.transpose(0,1)) > 0).float()
 
 def cpdag_mask(true_graph):
+    # compute_cpdag should return a numpy array or torch.Tensor
     cpdag = compute_cpdag(true_graph)
-    return cpdag
+    return torch.tensor(cpdag, dtype=torch.float32)
+
+def create_mask(graph, structure='causal'):
+    """
+    Build the [N,N] mask from a CausalDAG `graph` and a structure type.
+
+    structure ∈ {'fully_connected', 'causal', 'anti_causal', 'skeleton', 'cpdag'}
+    """
+    # get adjacency as a torch.Tensor
+    A = torch.tensor(graph.adj_matrix, dtype=torch.float32)
+
+    if structure == 'fully_connected':
+        return fully_connected_mask(A.size(0))
+    elif structure == 'causal':
+        return causal_mask(A)
+    elif structure == 'anti_causal':
+        return anti_causal_mask(A)
+    elif structure == 'skeleton':
+        return skeleton_mask(A)
+    elif structure == 'cpdag':
+        return cpdag_mask(A)
+    else:
+        raise ValueError(f"Unknown structure {structure!r}. "
+                         "Expected one of "
+                         "['fully_connected','causal','anti_causal','skeleton','cpdag'].")
