@@ -3,7 +3,7 @@ import yaml
 import torch
 
 from trainer.trainer import train_model
-from evaluation.evaluator import evaluate_zero_shot
+from evaluation.evaluator import evaluate_zero_shot, evaluate_few_shot
 from data.dataset_creation import build_dataset
 
 def main():
@@ -28,10 +28,20 @@ def main():
     model.to(device).eval()
 
     # Zero-shot evaluation
-    results = evaluate_zero_shot(model, graph, dataset, order, device)
+    results_zero = evaluate_zero_shot(model, graph, dataset, order, device)
+    results_few = evaluate_few_shot(
+        model, graph, dataset, order,
+        few_shot_num_samples=config['evaluation']['few_shot_num_samples'],
+        few_shot_gradient_steps=config['evaluation']['few_shot_gradient_steps'],
+        device=device
+    )
 
     print("\n=== Zero-Shot Evaluation ===")
-    for k, v in results.items():
+    for k, v in results_zero.items():
+        print(f"{k:15s}: {v:.4f}")
+
+    print("\n=== Few-Shot Evaluation ===")
+    for k, v in results_few.items():
         print(f"{k:15s}: {v:.4f}")
 
 if __name__ == '__main__':
