@@ -1,0 +1,5 @@
+graph_type: random
+num_graphs: 10
+num_vars: [10, 20]
+num_categs: [10]
+edge_prob: [0.3, 0.7]
