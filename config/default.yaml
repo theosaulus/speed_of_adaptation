@@ -5,7 +5,8 @@ model:
 objective:
   type: "pseudo_ll"            # Options: "pseudo_ll", "maml", "irm"
   inner_lr: 0.1                # For MAML
-  maml_first_order: true
+  inner_steps: 1                 # number of inner‐loop steps
+  maml_first_order: True
 
 data:
   num_vars: 20
@@ -18,6 +19,7 @@ training:
   epochs: 1000
   batch_size: 64
   optimizer: "adam"
+  lr: 0.001
   
 evaluation:
   compute_bounds: true

@@ -38,7 +38,11 @@ import torch.nn as nn
 from copy import copy
 import sys
 sys.path.append("../")
-from causal_discovery.utils import get_device
+
+
+CPU_ONLY = False
+def get_device():
+    return torch.device("cuda:0" if (not CPU_ONLY and torch.cuda.is_available()) else "cpu")
 
 
 class ProbDist(object):
