@@ -34,11 +34,14 @@ import os
 from datetime import datetime
 import sys
 from argparse import ArgumentParser
+import numpy as np
+import torch
 sys.path.append("../")
 
 from data.graph_visualization import visualize_graph
 from data.graph_generation import generate_categorical_graph, get_graph_func
 from data.utils import set_seed
+from data.dataset_creation import build_dataset, sample_dict_to_tensor
 
 
 if __name__ == '__main__':
@@ -48,45 +51,47 @@ if __name__ == '__main__':
                              'chain, bidiag, collider, jungle, full, regular, random, '
                              'random_max_#N where #N is to be replaced with an integer. '
                              'random_max_10 is random with max. 10 parents per node.')
-    parser.add_argument('--num_graphs', type=int, default=1,
+    parser.add_argument('--num_graphs', type=int, default=10,
                         help='Number of graphs to generate and sequentially test on.')
-    parser.add_argument('--num_vars', type=int, default=8,
+    parser.add_argument('--num_obs', type=int, default=2000,
+                        help='Number of observational samples to generate.')
+    parser.add_argument('--num_int', type=int, default=100,
+                        help='Number of interventional samples per variable to generate.')
+    parser.add_argument('--num_vars', type=int, default=[10, 20],
                         help='Number of variables that the graphs should have.')
-    parser.add_argument('--num_categs', type=int, default=10,
+    parser.add_argument('--num_categs', type=int, default=[10],
                         help='Number of categories/different values each variable can take.')
-    parser.add_argument('--edge_prob', type=float, default=0.2,
+    parser.add_argument('--edge_prob', type=float, default=[0.3, 0.7],
                         help='For random graphs, the probability of two arbitrary nodes to be connected.')
+    parser.add_argument('--seed', type=int, default=0,
+                        help='Random seed for reproducibility.')
     args = parser.parse_args()
 
     for num_vars in args.num_vars:
         for num_categs in args.num_categs:
             for edge_prob in args.edge_prob:
-                # TODO: replace all args.blablabla
-                # TODO: generate 100 samples per interv, and 1000 observational
-                # Basic checkpoint directory creation
-                folder = f"datasets/{args.graph_type}_{args.num_vars}_{args.num_categs}_{args.edge_prob}"
+                folder = f"datasets/{args.graph_type}_d{num_vars}_k{num_categs}_p{str(edge_prob).replace('.', '')}"
                 os.makedirs(folder, exist_ok=True)
 
                 with open(os.path.join(folder, "args.json"), "w") as f:
                     json.dump(vars(args), f, indent=4)
 
                 for gindex in range(args.num_graphs):
-                    # Seed setting for reproducibility
                     set_seed(args.seed+gindex)  # Need to increase seed, otherwise we might same graphs
+                    
                     # Generate graph
-                    print("Generating %s graph with %i variables..." % (args.graph_type, args.num_vars))
-                    graph = generate_categorical_graph(num_vars=args.num_vars,
-                                                    min_categs=args.num_categs,
-                                                    max_categs=args.num_categs,
-                                                    edge_prob=args.edge_prob,
+                    print("Generating %s graph with %i variables..." % (args.graph_type, num_vars))
+                    graph = generate_categorical_graph(num_vars=num_vars,
+                                                    min_categs=num_categs,
+                                                    max_categs=num_categs,
+                                                    edge_prob=edge_prob,
                                                     connected=True,
                                                     use_nn=True,
                                                     graph_func=get_graph_func(args.graph_type),
                                                     seed=args.seed+gindex)
                     file_id = "%s_%s" % (str(gindex+1).zfill(3), args.graph_type)
-                    # Save graph
                     graph.save_to_file(os.path.join(folder, "graph_%s.pt" % (file_id)))
-                    # Visualize graph
+
                     if graph.num_vars <= 100:
                         print("Visualizing graph...")
                         figsize = max(3, graph.num_vars ** 0.7)
@@ -94,3 +99,15 @@ if __name__ == '__main__':
                                         filename=os.path.join(folder, "graph_%s.pdf" % (file_id)),
                                         figsize=(figsize, figsize),
                                         layout="circular" if graph.num_vars < 40 else "graphviz")
+                    
+                    # Build dataset
+                    print("Building dataset...")
+                    dataset = build_dataset(graph,
+                                            num_obs=args.num_obs,
+                                            num_int=args.num_int)
+                    torch.save({k: (torch.tensor(v) if isinstance(v, np.ndarray) else v) for k, v in dataset.items()},
+                               os.path.join(folder, "dataset_%s.pt" % (file_id)))
+
+                    print("Done for graph %s" % (file_id))
+
+                    
