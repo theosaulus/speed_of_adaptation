@@ -98,7 +98,7 @@ def export_graph(filename, graph, num_obs, num_int, fixed_partial_interventions=
         visualize_graph(graph,
                         filename=filename+".pdf",
                         figsize=(8, 8),
-                        layout="graphviz")
+                        layout="circular")
 
 
 def process_graphs(args):

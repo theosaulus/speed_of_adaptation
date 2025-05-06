@@ -82,7 +82,7 @@ class CausalVariable(object):
     @staticmethod
     def load_from_state_dict(state_dict):
         if "prob_dist" in state_dict:
-            module = importlib.import_module("causal_graphs.variable_distributions")
+            module = importlib.import_module("data.variable_distributions")
             prob_dist_class = getattr(module, state_dict["prob_dist"]["class_name"])
             prob_dist = prob_dist_class.load_from_state_dict(state_dict["prob_dist"])
         else:
