@@ -50,7 +50,7 @@ class CausalCPDModel(MetaModule):
         return outputs_cat # (batch_size, num_vars, output_dim)
 
 
-def create_model(config, mask): 
+def create_model(mask, num_vars, output_dim, hidden_units): 
     """
     Creates a stack of CPD models for each variable in the dataset.
     The config must contain:
@@ -70,9 +70,6 @@ def create_model(config, mask):
         A module representing the full set of CPD models. Its forward pass accepts an input tensor
         of shape (batch_size, num_vars) and returns an output tensor of shape (batch_size, num_vars, output_dim).
     """
-    num_vars = config['data']['num_vars']
-    output_dim = config['data']['output_dim']
-    hidden_units = config['model']['hidden_units']
     input_dim = num_vars
 
     # Convert mask to torch.Tensor if necessary and ensure correct type

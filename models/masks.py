@@ -22,26 +22,26 @@ def cpdag_mask(true_graph):
     cpdag = compute_cpdag(true_graph)
     return torch.tensor(cpdag, dtype=torch.float32)
 
-def create_mask(graph, structure='causal'):
+def create_mask(graph, mask='causal'):
     """
-    Build the [N,N] mask from a CausalDAG `graph` and a structure type.
+    Build the [N,N] mask from a CausalDAG `graph` and a mask type.
 
-    structure ∈ {'fully_connected', 'causal', 'anti_causal', 'skeleton', 'cpdag'}
+    mask ∈ {'fully_connected', 'causal', 'anti_causal', 'skeleton', 'cpdag'}
     """
     # get adjacency as a torch.Tensor
     A = torch.tensor(graph.adj_matrix, dtype=torch.float32)
 
-    if structure == 'fully_connected':
+    if mask == 'fully_connected':
         return fully_connected_mask(A.size(0))
-    elif structure == 'causal':
+    elif mask == 'causal':
         return causal_mask(A)
-    elif structure == 'anti_causal':
+    elif mask == 'anti_causal':
         return anti_causal_mask(A)
-    elif structure == 'skeleton':
+    elif mask == 'skeleton':
         return skeleton_mask(A)
-    elif structure == 'cpdag':
+    elif mask == 'cpdag':
         return cpdag_mask(A)
     else:
-        raise ValueError(f"Unknown structure {structure!r}. "
+        raise ValueError(f"Unknown mask {mask!r}. "
                          "Expected one of "
                          "['fully_connected','causal','anti_causal','skeleton','cpdag'].")

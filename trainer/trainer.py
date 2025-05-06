@@ -41,14 +41,18 @@ def tasks_from_dataset(dataset, batch_size, order):
     return tasks
 
 
-def train_model(graph, dataset, order, config):
+def train_model(graph, dataset, order, config, device):
     torch.manual_seed(config.get('seed', 0))
     np.random.seed(config.get('seed', 0))
 
     # Instantiate the model
-    mask = create_mask(graph, config['model']['structure'])
-    model = create_model(config, mask=mask)
-    device = torch.device(config.get('device', 'cpu'))
+    mask = create_mask(graph, config['model']['mask'])
+    model = create_model(
+        mask, 
+        len(graph.variables),
+        graph.variables[0].prob_dist.num_categs,
+        config['model']['hidden_units'],
+    )
     model.to(device)
 
     obj_type = config['objective']['type']
