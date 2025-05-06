@@ -8,7 +8,8 @@ from trainer.trainer import train_model
 from evaluation.evaluator import evaluate_zero_shot, evaluate_few_shot
 from data.dataset_creation import build_dataset, sample_dict_to_tensor
 from data.graph_export import load_graph
-from data.utils import find_dataset_graph_pairs
+from data.utils import find_dataset_graph_pairs, set_seed
+from data.graph_definition import CausalDAG
 
 def main():
     parser = argparse.ArgumentParser()
@@ -19,56 +20,66 @@ def main():
     # Load configuration
     with io.open(args.config, 'r', encoding='utf-8-sig') as f:
         config = yaml.safe_load(f)
-    
+    seed = config.get('seed', 0)
+
     # Set lists of results
     results_zero_list = None
     results_few_list = None
     
     # Load graph and dataset
     folder = os.path.join("datasets", config['data']['folder_path'])
-    for graph_file in [
-        f for f in os.listdir(folder) if f.endswith('.npz')
-        ]:
+    for gindex, graph_file in enumerate([
+        f for f in os.listdir(folder) if f.endswith('.pt')
+        ]):
         print(f"Found {graph_file}")
-        breakpoint()
+        set_seed(seed + gindex)
+        
+        graph_file = os.path.join(folder, graph_file)
+        graph = CausalDAG.load_from_file(graph_file)
 
-        graph = load_graph(os.path.join(folder, graph_file))
+        size_obs = int(config['data']['size_obs'])
+        size_int = int(config['data']['size_int']) # number of interv samples in total
+        num_train_int = int(config['data']['num_train_int']) # number of interventions 
 
-        # TODO: NOW THE OBJECT WE LOAD IS A GRAPH, WITH ARRAYS DATA_INT/OBS 
-        dataset = torch.load(dataset_file)
+        dataset = build_dataset(graph, size_obs, size_int // num_train_int)
         _, order = sample_dict_to_tensor(dataset['observational'])
 
         # Split dataset into train and test
-        size_obs = int(config['data']['size_obs'])
-        size_int = int(config['data']['size_int']) # number of interv samples in total
-        num_int = int(config['data']['num_int'])
-
         intervention_list = dataset['interventional'].keys()
-        train_interventions = torch.randperm(len(intervention_list))[:num_int]
+        train_interventions = list(dataset['observational'].keys())
+        train_interventions = [
+            train_interventions[i] for i in torch.randperm(len(train_interventions))[:num_train_int]
+        ]
+        test_interventions = [var for var in intervention_list if var not in train_interventions]
 
-        perm = torch.randperm(len(dataset['observational']))
-        dataset_train = dataset['observational'][perm[:size_obs]]
-        perm = torch.randperm(len(dataset['interventional'][list(dataset['interventional'].keys())[0]]))
-        dataset_train.update({
-            var: dataset['interventional'][var][perm[:(size_int // num_int)]]
-            for i, var in enumerate(intervention_list)
+        dataset_train, dataset_test = {}, {}
+
+        dataset_train['observational'] = dataset['observational']
+        dataset_train['interventional'] = {}
+        dataset_train['interventional'].update({
+            var: dataset['interventional'][var]
+            for var in intervention_list
             if var in train_interventions
         })
- 
-        dataset_test = {}
-        dataset_test.update({
-            var: dataset['interventional'][var][perm[:(size_int // num_int)]]
-            for i, var in enumerate(intervention_list)
-            if var in train_interventions
+        dataset_test['observational'] = {}
+        dataset_test['interventional'] = {}
+        dataset_test['interventional'].update({
+            var: dataset['interventional'][var]
+            for var in intervention_list
+            if var in test_interventions
         })
         
         # Train
-        model = train_model(graph, dataset_train, order, config)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {device}")
+        model = train_model(graph, dataset_train, order, config, device)
 
         # Test
-        device = torch.device(config.get('device', 'cpu'))
         model.to(device).eval()
-        results_zero = evaluate_zero_shot(model, graph, dataset, order, device)
+        results_zero = evaluate_zero_shot(
+            model, graph, dataset, order, 
+            device=device
+        )
         results_few = evaluate_few_shot(
             model, graph, dataset, order,
             few_shot_num_samples=config['evaluation']['few_shot_num_samples'],

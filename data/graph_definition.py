@@ -258,7 +258,7 @@ class CausalDAG(object):
         """
         Loads a graph object from disk.
         """
-        state_dict = torch.load(filename)
+        state_dict = torch.load(filename, weights_only=False)
         return CausalDAG.load_from_state_dict(state_dict)
 
 

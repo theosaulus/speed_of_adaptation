@@ -91,6 +91,7 @@ if __name__ == '__main__':
                                                     graph_func=get_graph_func(args.graph_type),
                                                     seed=seed)
                     file_id = "%s_%s_%i_%i" % (str(gindex+1).zfill(3), args.graph_type, num_vars, seed)
+                    graph.save_to_file(os.path.join(folder, file_id + ".pt"))
                     export_graph(
                         filename=os.path.join(folder, file_id),
                         graph=graph,
