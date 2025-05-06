@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-def sample_dict_to_tensor(sample, order=None):
+def sample_dict_to_tensor(sample, device, order=None):
     """
     Convert a sample (dictionary) from graph.sample() into a tensor.
     
@@ -21,7 +21,7 @@ def sample_dict_to_tensor(sample, order=None):
         value = np.array(sample[key]).reshape(-1)
         sample_list.append(value)
     data = np.stack(sample_list, axis=1)
-    return torch.tensor(data, dtype=torch.long), order
+    return torch.tensor(data, dtype=torch.long, device=device), order
 
 def build_dataset(graph, num_obs, num_int):
     """

@@ -22,14 +22,14 @@ def cpdag_mask(true_graph):
     cpdag = compute_cpdag(true_graph)
     return torch.tensor(cpdag, dtype=torch.float32)
 
-def create_mask(graph, mask='causal'):
+def create_mask(graph, mask='causal', device=None):
     """
     Build the [N,N] mask from a CausalDAG `graph` and a mask type.
 
     mask ∈ {'fully_connected', 'causal', 'anti_causal', 'skeleton', 'cpdag'}
     """
     # get adjacency as a torch.Tensor
-    A = torch.tensor(graph.adj_matrix, dtype=torch.float32)
+    A = torch.tensor(graph.adj_matrix, dtype=torch.float32, device=device)
 
     if mask == 'fully_connected':
         return fully_connected_mask(A.size(0))

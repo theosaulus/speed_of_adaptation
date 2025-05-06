@@ -10,7 +10,7 @@ from objectives.pseudo_ll import pseudo_ll_loss
 from objectives.maml import maml_meta_update
 
 
-def tasks_from_dataset(dataset, batch_size, order):
+def tasks_from_dataset(dataset, batch_size, device, order):
     """
     Turn observational + interventional data into a list of tasks,
     each task being a dict with 'inner' and 'outer' tensors.
@@ -18,7 +18,7 @@ def tasks_from_dataset(dataset, batch_size, order):
     tasks = []
 
     # Observational regime is one task
-    obs_tensor, _ = sample_dict_to_tensor(dataset['observational'], order=order)
+    obs_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order=order)
     for _ in range(batch_size):  # batch of tasks
         idx_in = np.random.choice(obs_tensor.size(0), batch_size, replace=False)
         idx_out = np.random.choice(obs_tensor.size(0), batch_size, replace=False)
@@ -29,7 +29,7 @@ def tasks_from_dataset(dataset, batch_size, order):
 
     # Each intervention regime is another task
     for var_name, sample_dict in dataset['interventional'].items():
-        int_tensor, _ = sample_dict_to_tensor(sample_dict, order=order)
+        int_tensor, _ = sample_dict_to_tensor(sample_dict, device, order=order)
         for _ in range(batch_size):
             idx_in = np.random.choice(int_tensor.size(0), batch_size, replace=False)
             idx_out = np.random.choice(int_tensor.size(0), batch_size, replace=False)
@@ -46,12 +46,13 @@ def train_model(graph, dataset, order, config, device):
     np.random.seed(config.get('seed', 0))
 
     # Instantiate the model
-    mask = create_mask(graph, config['model']['mask'])
+    mask = create_mask(graph, config['model']['mask'], device=device)
     model = create_model(
         mask, 
         len(graph.variables),
         graph.variables[0].prob_dist.num_categs,
         config['model']['hidden_units'],
+        device=device,
     )
     model.to(device)
 
@@ -63,7 +64,7 @@ def train_model(graph, dataset, order, config, device):
     if obj_type == 'pseudo_ll':
         optimizer = Adam(model.parameters(), lr=lr)
         # only observational data
-        obs_tensor, _ = sample_dict_to_tensor(dataset['observational'], order=order)
+        obs_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order)
         for epoch in range(epochs):
             idx = np.random.choice(obs_tensor.size(0), batch_size, replace=False)
             X = obs_tensor[idx].to(device)
@@ -80,7 +81,7 @@ def train_model(graph, dataset, order, config, device):
         inner_steps = config['objective']['inner_steps']
         first_order = config['objective'].get('first_order', True)
         for epoch in range(epochs):
-            tasks = tasks_from_dataset(dataset, batch_size, order)
+            tasks = tasks_from_dataset(dataset, batch_size, device, order)
             meta_loss = maml_meta_update(
                 model, tasks,
                 inner_lr=inner_lr,

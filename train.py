@@ -34,6 +34,9 @@ def main():
         print(f"Found {graph_file}")
         set_seed(seed + gindex)
         
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {device}")
+
         graph_file = os.path.join(folder, graph_file)
         graph = CausalDAG.load_from_file(graph_file)
 
@@ -42,7 +45,7 @@ def main():
         num_train_int = int(config['data']['num_train_int']) # number of interventions 
 
         dataset = build_dataset(graph, size_obs, size_int // num_train_int)
-        _, order = sample_dict_to_tensor(dataset['observational'])
+        _, order = sample_dict_to_tensor(dataset['observational'], device)
 
         # Split dataset into train and test
         intervention_list = dataset['interventional'].keys()
@@ -70,8 +73,6 @@ def main():
         })
         
         # Train
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Using device: {device}")
         model = train_model(graph, dataset_train, order, config, device)
 
         # Test

@@ -11,13 +11,13 @@ def evaluate_bounds(graph, dataset, order, device):
     results = {}
     
     # Observational regime
-    X_obs, _ = sample_dict_to_tensor(dataset['observational'], order)
+    X_obs, _ = sample_dict_to_tensor(dataset['observational'], device, order)
     X_obs = X_obs.to(device)
     results['bound_obs'] = compute_nll_bound(graph, X_obs)
 
     # Interventional regimes
     for var_name, sample_dict in dataset['interventional'].items():
-        X_int, _ = sample_dict_to_tensor(sample_dict, order)
+        X_int, _ = sample_dict_to_tensor(sample_dict, device, order)
         X_int = X_int.to(device)
 
         graph_int = graph.copy()
@@ -36,14 +36,14 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
     results = {}
 
     # Observational regime
-    X_obs, _ = sample_dict_to_tensor(dataset['observational'], order)
+    X_obs, _ = sample_dict_to_tensor(dataset['observational'], device, order)
     X_obs = X_obs.to(device)
     results['raw_pseudo_nll_obs'] = - pseudo_ll_loss(model, X_obs)
     results['nll_on_gt_obs'] = compute_nll_on_ground_truth(model, graph, X_obs)
 
     # Interventional regimes
     for var_name, sample_dict in dataset['interventional'].items():
-        X_int, _ = sample_dict_to_tensor(sample_dict, order)
+        X_int, _ = sample_dict_to_tensor(sample_dict, device, order)
         X_int = X_int.to(device)
 
         graph_int = graph.copy()
@@ -79,7 +79,7 @@ def evaluate_few_shot(
 
     for K in few_shot_num_samples:
         for var_name, sample_dict in dataset['interventional'].items():
-            X_int, _ = sample_dict_to_tensor(sample_dict, order)
+            X_int, _ = sample_dict_to_tensor(sample_dict, device, order)
             X_int = X_int.to(device)
             N = X_int.size(0)
 
