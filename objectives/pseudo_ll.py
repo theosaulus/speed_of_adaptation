@@ -12,7 +12,7 @@ def pseudo_ll_loss(model, x, params=None):
     loss = 0.0
     num_vars = outputs.shape[1]
     for i in range(num_vars):
-        logits = outputs[:, i, :]
+        probs = outputs[:, i, :]
         target = x[:, i].long()
-        loss += F.cross_entropy(logits, target)
+        loss += F.cross_entropy(probs, target)
     return loss / num_vars

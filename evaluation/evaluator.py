@@ -38,8 +38,8 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
     # Observational regime
     X_obs, _ = sample_dict_to_tensor(dataset['observational'], order)
     X_obs = X_obs.to(device)
-    results['raw_pseudo_nll_obs'] = - pseudo_ll_loss(model, X_obs).item()
-    results['nll_on_gt_obs'] = compute_nll_on_ground_truth(model, graph, X_obs).item()
+    results['raw_pseudo_nll_obs'] = - pseudo_ll_loss(model, X_obs)
+    results['nll_on_gt_obs'] = compute_nll_on_ground_truth(model, graph, X_obs)
 
     # Interventional regimes
     for var_name, sample_dict in dataset['interventional'].items():
@@ -50,7 +50,7 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
         graph_int = graph_int.get_intervened_graph({var_name: X_int[:, graph.variables.index(var_name)]})
 
         with torch.no_grad():
-            raw_nll = - pseudo_ll_loss(model, X_int).item()
+            raw_nll = - pseudo_ll_loss(model, X_int)
             nll_on_gt_obs = compute_nll_on_ground_truth(model, graph, X_int)
             nll_on_gt_int = compute_nll_on_ground_truth(model, graph_int, X_int)
 
@@ -105,7 +105,7 @@ def evaluate_few_shot(
                 finetuned_model.eval()
 
             with torch.no_grad():
-                raw_nll = - pseudo_ll_loss(finetuned_model, X_int).item()
+                raw_nll = - pseudo_ll_loss(finetuned_model, X_int)
                 nll_on_gt_obs = compute_nll_on_ground_truth(finetuned_model, graph, X_int)
                 nll_on_gt_int = compute_nll_on_ground_truth(finetuned_model, graph_int, X_int)
 
