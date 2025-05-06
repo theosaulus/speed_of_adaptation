@@ -41,34 +41,9 @@ def tasks_from_dataset(dataset, batch_size, order):
     return tasks
 
 
-def train_model(config):
+def train_model(graph, dataset, order, config):
     torch.manual_seed(config.get('seed', 0))
     np.random.seed(config.get('seed', 0))
-
-    # Generate a random categorical graph with ground-truth CPDs
-    graph = generate_categorical_graph(
-        num_vars=config['data']['num_vars'],
-        min_categs=config['data']['num_categs'],
-        max_categs=config['data']['num_categs'],
-        edge_prob=config['data'].get('edge_prob', 0.5),
-        connected=config['data'].get('connected', True),
-        use_nn=True,
-        deterministic=config['data'].get('deterministic', False),
-        graph_func=get_graph_func(config['data']['graph_type']),
-        seed=config.get('seed', 0),
-        num_latents=config['data'].get('num_latents', 0)
-    )
-
-    # Build the dataset (observational + interventional)
-    dataset = build_dataset(
-        graph,
-        num_obs=config['data']['num_obs'],
-        num_int=config['data']['num_int']
-    )
-
-    # Convert one sample to get variable ordering
-    sample0 = dataset['observational']
-    _, order = sample_dict_to_tensor(sample0)
 
     # Instantiate the model
     mask = create_mask(graph, config['model']['structure'])
@@ -115,4 +90,4 @@ def train_model(config):
     else:
         raise ValueError(f"Unknown objective type: {obj_type}")
 
-    return model, graph, order
+    return model
