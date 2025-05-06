@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from objectives.maml_utils.module import MetaModule
+
 
 class CPDModel(nn.Module):
     def __init__(self, input_dim, hidden_units, output_dim, mask):
@@ -10,14 +12,25 @@ class CPDModel(nn.Module):
         self.fc1 = nn.Linear(input_dim, hidden_units)
         self.fc2 = nn.Linear(hidden_units, output_dim)
     
-    def forward(self, x):
-        x_masked = x * self.mask
+    def forward(self, x, params=None):
+        # Load parameters if provided
+        weight1 = params['fc1.weight'] if params else self.fc1.weight
+        bias1 = params['fc1.bias'] if params else self.fc1.bias
+        weight2 = params['fc2.weight'] if params else self.fc2.weight
+        bias2 = params['fc2.bias'] if params else self.fc2.bias
+        self.fc1.weight = nn.Parameter(weight1)
+        self.fc1.bias = nn.Parameter(bias1)
+        self.fc2.weight = nn.Parameter(weight2)
+        self.fc2.bias = nn.Parameter(bias2)
+
+        x_onehot = F.one_hot(x.long(), num_classes=self.mask.shape[0]).float()  # Convert to one-hot encoding
+        x_masked = x_onehot * self.mask.unsqueeze(-1)
         h = F.leaky_relu(self.fc1(x_masked), negative_slope=0.1)
         logits = self.fc2(h)
-        return logits # to be used with softmax
+        probs = F.softmax(logits, dim=-1)
+        return probs  # (batch_size, output_dim)
 
-
-class CausalCPDModel(nn.Module): 
+class CausalCPDModel(MetaModule): 
     """
     Combines multiple CPD models, each predicting for a specific variable. 
     Input: (batch_size, num_vars). 

@@ -42,7 +42,7 @@ from data.graph_visualization import visualize_graph
 from data.graph_generation import generate_categorical_graph, get_graph_func
 from data.utils import set_seed
 from data.dataset_creation import build_dataset, sample_dict_to_tensor
-
+from data.graph_export import export_graph
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -77,7 +77,8 @@ if __name__ == '__main__':
                     json.dump(vars(args), f, indent=4)
 
                 for gindex in range(args.num_graphs):
-                    set_seed(args.seed+gindex)  # Need to increase seed, otherwise we might same graphs
+                    seed = args.seed + gindex
+                    set_seed(seed)  # Need to increase seed, otherwise we might same graphs
                     
                     # Generate graph
                     print("Generating %s graph with %i variables..." % (args.graph_type, num_vars))
@@ -88,26 +89,14 @@ if __name__ == '__main__':
                                                     connected=True,
                                                     use_nn=True,
                                                     graph_func=get_graph_func(args.graph_type),
-                                                    seed=args.seed+gindex)
-                    file_id = "%s_%s" % (str(gindex+1).zfill(3), args.graph_type)
-                    graph.save_to_file(os.path.join(folder, "graph_%s.pt" % (file_id)))
-
-                    if graph.num_vars <= 100:
-                        print("Visualizing graph...")
-                        figsize = max(3, graph.num_vars ** 0.7)
-                        visualize_graph(graph,
-                                        filename=os.path.join(folder, "graph_%s.pdf" % (file_id)),
-                                        figsize=(figsize, figsize),
-                                        layout="circular" if graph.num_vars < 40 else "graphviz")
-                    
-                    # Build dataset
-                    print("Building dataset...")
-                    dataset = build_dataset(graph,
-                                            num_obs=args.num_obs,
-                                            num_int=args.num_int)
-                    torch.save({k: (torch.tensor(v) if isinstance(v, np.ndarray) else v) for k, v in dataset.items()},
-                               os.path.join(folder, "dataset_%s.pt" % (file_id)))
-
+                                                    seed=seed)
+                    file_id = "%s_%s_%i_%i" % (str(gindex+1).zfill(3), args.graph_type, num_vars, seed)
+                    export_graph(
+                        filename=os.path.join(folder, file_id),
+                        graph=graph,
+                        num_obs=args.num_obs,
+                        num_int=args.num_int,
+                    )
                     print("Done for graph %s" % (file_id))
 
                     
