@@ -21,24 +21,24 @@ class CPDModel(nn.Module):
 
     def forward(self, x, params=None):
         # x: (batch_size, num_vars)
-        # Load parameters if provided
-        weight1 = params['fc1.weight'] if params else self.fc1.weight
-        bias1 = params['fc1.bias'] if params else self.fc1.bias
-        weight2 = params['fc2.weight'] if params else self.fc2.weight
-        bias2 = params['fc2.bias'] if params else self.fc2.bias
-        self.fc1.weight = nn.Parameter(weight1)
-        self.fc1.bias = nn.Parameter(bias1)
-        self.fc2.weight = nn.Parameter(weight2)
-        self.fc2.bias = nn.Parameter(bias2)
-
         batch_size = x.size(0)
         x_onehot = F.one_hot(x.long(), num_classes=self.output_dim).float() # (batch_size, num_vars, num_categs)
         x_flat = x_onehot.view(batch_size, -1)  # (batch_size, num_vars * num_categs)
         x_masked = x_flat * self.mask_flat[None, :]
-        h = F.leaky_relu(self.fc1(x_masked), negative_slope=0.1)
-        logits = self.fc2(h)
-        probs = F.softmax(logits, dim=-1)
-        return probs  # (batch_size, output_dim = num_categs)
+
+        # Load parameters if provided
+        if params is not None:
+            w1 = params['fc1.weight']
+            b1 = params['fc1.bias']
+            w2 = params['fc2.weight']
+            b2 = params['fc2.bias']
+            h = F.leaky_relu(F.linear(x_masked, w1, b1), negative_slope=0.1)
+            logits = F.linear(h, w2, b2)
+        else:
+            h = F.leaky_relu(self.fc1(x_masked), negative_slope=0.1)
+            logits = self.fc2(h)
+        probs = F.softmax(logits, dim=-1)  # (batch_size, output_dim)
+        return probs
 
 class CausalCPDModel(MetaModule): 
     """
