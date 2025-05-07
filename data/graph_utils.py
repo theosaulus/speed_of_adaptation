@@ -129,6 +129,14 @@ def get_node_relations(adj_matrix):
                        node_relations[i,j] = -1: j is a descendant of i,
                        node_relations[i,j] = 0: j and i are independent conditioned on the empty set
                        node_relations[i,j] = 2: j and i share a confounder
+    global_roles : np.ndarray of str, shape [num_vars]
+        For each node: 'root' (no incoming edges), 'leaf' (no outgoing edges), or 'neither'.
+    in_degrees : np.ndarray of int, shape [num_vars]
+        Number of incoming edges per node.
+    out_degrees : np.ndarray of int, shape [num_vars]
+        Number of outgoing edges per node.
+    total_degrees : np.ndarray of int, shape [num_vars]
+        Sum of incoming and outgoing edges per node.    
     """
     # Find all ancestor-descendant relations
     ancestors = adj_matrix.T
@@ -150,5 +158,17 @@ def get_node_relations(adj_matrix):
     confounder = (node_relations == 0) * ((ancestors[None] * ancestors[:, None]).sum(axis=-1) > 0)
     node_relations += 2 * confounder
     node_relations[np.arange(node_relations.shape[0]), np.arange(node_relations.shape[1])] = 0
+    # One-hop relations matrix: parent if 1, child if -1
+    one_hop_relations = - adj_matrix.astype(np.int32) + adj_matrix.T.astype(np.int32)
 
-    return node_relations
+    # in, out, and total degrees
+    in_degrees  = adj_matrix.sum(axis=0).astype(int)
+    out_degrees = adj_matrix.sum(axis=1).astype(int)
+    total_degrees = in_degrees + out_degrees
+
+    # global role: root / leaf / neither
+    global_roles = np.full(adj_matrix.shape[0], 'neither', dtype=object)
+    global_roles[(in_degrees == 0) & (out_degrees > 0)] = 'root'
+    global_roles[(out_degrees == 0) & (in_degrees > 0)] = 'leaf'
+
+    return node_relations, one_hop_relations, global_roles, in_degrees, out_degrees, total_degrees

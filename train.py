@@ -3,6 +3,7 @@ import yaml
 import torch
 import io
 import os
+import numpy as np
 
 from trainer.trainer import train_model
 from evaluation.evaluator import evaluate_zero_shot, evaluate_few_shot
@@ -28,11 +29,15 @@ def main():
     
     # Load graph and dataset
     folder = os.path.join("datasets", config['data']['folder_path'])
+    num_seeds = 0
     for gindex, graph_file in enumerate([
         f for f in os.listdir(folder) if f.endswith('.pt')
         ]):
         print(f"Found {graph_file}")
         set_seed(seed + gindex)
+        num_seeds += 1
+        if num_seeds > config['num_seeds']:
+            break
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {device}")
@@ -92,17 +97,19 @@ def main():
         results_few_list.update({k: results_few_list.get(k, []) + [v] for k, v in results_few.items()})
     
     # Print results
-    results_zero_avg = {k: sum(v) / len(v) for k, v in results_zero_list.items()}
-    results_few_avg = {k: sum(v) / len(v) for k, v in results_few_list.items()}
-    results_zero_std = {k: (sum((x - results_zero_avg[k]) ** 2 for x in v) / len(v)) ** 0.5 for k, v in results_zero_list.items()}
-    results_few_std = {k: (sum((x - results_few_avg[k]) ** 2 for x in v) / len(v)) ** 0.5 for k, v in results_few_list.items()}
+    results_zero_avg = {k: np.mean([x for x in v if x is not None]) for k, v in results_zero_list.items() if v and any(x is not None for x in v)}
+    # results_few_avg = {k: np.mean([x for x in v if x is not None]) for k, v in results_few_list.items() if v and any(x is not None for x in v)}
+    results_zero_std = {k: np.std([x for x in v if x is not None]) for k, v in results_zero_list.items() if v and any(x is not None for x in v)}
+    # results_few_std = {k: np.std([x for x in v if x is not None]) for k, v in results_few_list.items() if v and any(x is not None for x in v)}
     
     print("\n=== Zero-Shot Evaluation ===")
     for k, v in results_zero_avg.items():
-        print(f"{k:15s}: {v:.4f} ± {results_zero_std[k]:.4f}")
-    print("\n=== Few-Shot Evaluation ===")
-    for k, v in results_few_avg.items():
-        print(f"{k:15s}: {v:.4f} ± {results_few_std[k]:.4f}")
+        if '_all_full' in k:
+            print(f"{k:15s}: {v:.4f} ± {results_zero_std[k]:.4f}")
+    # print("\n=== Few-Shot Evaluation ===")
+    # for k, v in results_few_avg.items():
+    #     if '_all_full' in k:
+    #         print(f"{k:15s}: {v:.4f} ± {results_few_std[k]:.4f}")
 
 if __name__ == '__main__':
     main()

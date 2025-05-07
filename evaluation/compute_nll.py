@@ -20,18 +20,23 @@ def compute_nll_bound(graph, X):
         nlls.append(nll / len(graph.variables))
     return float(np.mean(nlls))
 
-def compute_nll_on_ground_truth(model, graph, X, params=None):
+def compute_nll_on_ground_truth(model, graph, X, params=None, var_indices=None):
     """
     Compute the NLL-Mean of the model predictions under the ground-truth SCM.
     """
     probs = model(X, params=params) # [batch_size, num_vars, output_dim]
     batch_size, num_vars, output_dim = probs.shape
-    
+
+    if var_indices is None:
+        var_indices = range(num_vars)
+
     p_model = probs.detach().cpu().numpy() # (B, N, K)
     X_np = X.detach().cpu().numpy() # (B, N)
     nll_per_sample = np.zeros(batch_size, dtype=np.float64)
 
     for i, var in enumerate(graph.variables):
+        if i not in var_indices:
+            continue
         p_model_i = p_model[:, i, :] # (B, K)
 
         parents = np.where(graph.adj_matrix[:, i])[0]
@@ -40,10 +45,10 @@ def compute_nll_on_ground_truth(model, graph, X, params=None):
             for p in parents
         }
         p_groundtruth = var.prob_dist.prob_func(parents_inputs, batch_size)
-        
+
         if p_model_i.shape[-1] != p_groundtruth.shape[-1]:
             p_groundtruth = F.one_hot(torch.tensor(p_groundtruth, dtype=torch.long), num_classes=output_dim).cpu().numpy() # (B, K)
         nll_per_sample += -np.sum(p_model_i * np.log(p_groundtruth + 1e-12), axis=1)
     
-    nll_per_sample /= num_vars
+    nll_per_sample /= float(len(list(var_indices)))
     return float(nll_per_sample.mean())

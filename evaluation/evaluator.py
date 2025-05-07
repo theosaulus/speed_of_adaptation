@@ -38,6 +38,8 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
     Returns a dict with per‑regime NLL.
     """
     results = {}
+    node_relations, one_hop_relations, global_roles, in_degrees, out_degrees, total_degrees =\
+        graph.node_relations
 
     # Observational regime
     if 'observational' in dataset:
@@ -56,16 +58,97 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
             raise ValueError(f"Variable '{var_name}' not found in graph variables.")
         var_index = variable_names.index(var_name)
         graph_int = graph.get_intervened_graph({var_name: X_int[:, var_index]})
-        # graph_int = graph.get_intervened_graph({var_name: X_int[:, graph.variables.index(var_name)]})
 
         with torch.no_grad():
-            raw_nll = - pseudo_ll_loss(model, X_int)
-            nll_on_gt_obs = compute_nll_on_ground_truth(model, graph, X_int)
-            nll_on_gt_int = compute_nll_on_ground_truth(model, graph_int, X_int)
+            num_vars = X_int.shape[1]
+            all_idxs = list(range(num_vars))
 
-        results[f'raw_pseudo_nll_{var_name}'] = raw_nll
-        results[f'nll_on_gt_obs_{var_name}'] = nll_on_gt_obs
-        results[f'nll_on_gt_int_{var_name}'] = nll_on_gt_int
+            # subsets wrt this intervention target
+            parents = np.where(one_hop_relations[var_index] == 1)[0].tolist()
+            children = np.where(one_hop_relations[var_index] == -1)[0].tolist()
+            ancestors = np.where(node_relations[var_index] == 1)[0].tolist()
+            descendants = np.where(node_relations[var_index] == -1)[0].tolist()
+            roots = np.where(global_roles == 'root')[0].tolist()
+            leaves = np.where(global_roles == 'leaf')[0].tolist()
+
+            # raw pseudo-LL on each subset
+            raw_nll_full        = pseudo_ll_loss(model, X_int)
+            raw_nll_intervention= pseudo_ll_loss(model, X_int, var_indices=[var_index])
+            raw_nll_root        = pseudo_ll_loss(model, X_int, var_indices=roots)      if roots        else None
+            raw_nll_leaf        = pseudo_ll_loss(model, X_int, var_indices=leaves)     if leaves       else None
+            raw_nll_ancestor    = pseudo_ll_loss(model, X_int, var_indices=ancestors)  if ancestors    else None
+            raw_nll_descendant  = pseudo_ll_loss(model, X_int, var_indices=descendants)if descendants  else None
+            raw_nll_parent      = pseudo_ll_loss(model, X_int, var_indices=parents)    if parents      else None
+            raw_nll_child       = pseudo_ll_loss(model, X_int, var_indices=children)   if children     else None
+
+            # ground-truth NLL on each subset (observational graph)
+            nll_obs_full        = compute_nll_on_ground_truth(model, graph, X_int)
+            nll_obs_intervention= compute_nll_on_ground_truth(model, graph, X_int, var_indices=[var_index])
+            nll_obs_root        = compute_nll_on_ground_truth(model, graph, X_int, var_indices=roots)       if roots        else None
+            nll_obs_leaf        = compute_nll_on_ground_truth(model, graph, X_int, var_indices=leaves)      if leaves       else None
+            nll_obs_ancestor    = compute_nll_on_ground_truth(model, graph, X_int, var_indices=ancestors)   if ancestors    else None
+            nll_obs_descendant  = compute_nll_on_ground_truth(model, graph, X_int, var_indices=descendants) if descendants  else None
+            nll_obs_parent      = compute_nll_on_ground_truth(model, graph, X_int, var_indices=parents)     if parents      else None
+            nll_obs_child       = compute_nll_on_ground_truth(model, graph, X_int, var_indices=children)    if children     else None
+
+            # ground-truth NLL on each subset (intervened graph)
+            nll_int_full        = compute_nll_on_ground_truth(model, graph_int, X_int)
+            nll_int_intervention= compute_nll_on_ground_truth(model, graph_int, X_int, var_indices=[var_index])
+            nll_int_root        = compute_nll_on_ground_truth(model, graph_int, X_int, var_indices=roots)       if roots        else None
+            nll_int_leaf        = compute_nll_on_ground_truth(model, graph_int, X_int, var_indices=leaves)      if leaves       else None
+            nll_int_ancestor    = compute_nll_on_ground_truth(model, graph_int, X_int, var_indices=ancestors)   if ancestors    else None
+            nll_int_descendant  = compute_nll_on_ground_truth(model, graph_int, X_int, var_indices=descendants) if descendants  else None
+            nll_int_parent      = compute_nll_on_ground_truth(model, graph_int, X_int, var_indices=parents)     if parents      else None
+            nll_int_child       = compute_nll_on_ground_truth(model, graph_int, X_int, var_indices=children)    if children     else None
+
+        def _to_numpy(tensor):
+            if tensor is None:
+                return None
+            if isinstance(tensor, torch.Tensor):
+                tensor = tensor.cpu().numpy()
+            return tensor
+            
+        results[f'raw_pseudo_nll_{var_name}_full']         = _to_numpy(raw_nll_full)
+        results[f'raw_pseudo_nll_{var_name}_intervention'] = _to_numpy(raw_nll_intervention)
+        results[f'raw_pseudo_nll_{var_name}_root']         = _to_numpy(raw_nll_root)
+        results[f'raw_pseudo_nll_{var_name}_leaf']         = _to_numpy(raw_nll_leaf)
+        results[f'raw_pseudo_nll_{var_name}_ancestor']     = _to_numpy(raw_nll_ancestor)
+        results[f'raw_pseudo_nll_{var_name}_descendant']   = _to_numpy(raw_nll_descendant)
+        results[f'raw_pseudo_nll_{var_name}_parent']       = _to_numpy(raw_nll_parent)
+        results[f'raw_pseudo_nll_{var_name}_child']        = _to_numpy(raw_nll_child)
+
+        results[f'nll_on_gt_obs_{var_name}_full']         = _to_numpy(nll_obs_full)
+        results[f'nll_on_gt_obs_{var_name}_intervention'] = _to_numpy(nll_obs_intervention)
+        results[f'nll_on_gt_obs_{var_name}_root']         = _to_numpy(nll_obs_root)
+        results[f'nll_on_gt_obs_{var_name}_leaf']         = _to_numpy(nll_obs_leaf)
+        results[f'nll_on_gt_obs_{var_name}_ancestor']     = _to_numpy(nll_obs_ancestor)
+        results[f'nll_on_gt_obs_{var_name}_descendant']   = _to_numpy(nll_obs_descendant)
+        results[f'nll_on_gt_obs_{var_name}_parent']       = _to_numpy(nll_obs_parent)
+        results[f'nll_on_gt_obs_{var_name}_child']        = _to_numpy(nll_obs_child)
+
+        results[f'nll_on_gt_int_{var_name}_full']         = _to_numpy(nll_int_full)
+        results[f'nll_on_gt_int_{var_name}_intervention'] = _to_numpy(nll_int_intervention)
+        results[f'nll_on_gt_int_{var_name}_root']         = _to_numpy(nll_int_root)
+        results[f'nll_on_gt_int_{var_name}_leaf']         = _to_numpy(nll_int_leaf)
+        results[f'nll_on_gt_int_{var_name}_ancestor']     = _to_numpy(nll_int_ancestor)
+        results[f'nll_on_gt_int_{var_name}_descendant']   = _to_numpy(nll_int_descendant)
+        results[f'nll_on_gt_int_{var_name}_parent']       = _to_numpy(nll_int_parent)
+        results[f'nll_on_gt_int_{var_name}_child']        = _to_numpy(nll_int_child)
+
+    # Compute averages over the different interventions
+    inter_vars = list(dataset.get('interventional', {}).keys())
+
+    # for each metric type and each subset suffix
+    for metric in ('raw_pseudo_nll', 'nll_on_gt_obs', 'nll_on_gt_int'):
+        for subset in ('full', 'intervention', 'root', 'leaf', 'ancestor', 'descendant', 'parent', 'child'):
+            key = f"{metric}_all_{subset}"
+            vals = []
+            for v in inter_vars:
+                k = f"{metric}_{v}_{subset}"
+                if k in results and results[k] is not None:
+                    vals.append(results[k])
+            if vals:
+                results[key] = np.mean([v.cpu().numpy() if isinstance(v, torch.Tensor) else v for v in vals])
 
     return results
 
