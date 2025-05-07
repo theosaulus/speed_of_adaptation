@@ -20,16 +20,16 @@ data:
   num_train_int: 14
 
 training:
-  epochs: 1000
+  epochs: 20
   batch_size: 1000
   optimizer: "adam"
   lr: 0.001
   
 evaluation:
   compute_bounds: True
-  few_shot_num_samples: [1, 3, 10, 30, 100]
+  few_shot_num_samples: [1, 3, 10]
   few_shot_gradient_steps: 3
   few_shot_lr: 0.1
 
 seed: 0
-num_seeds: 10
+num_seeds: 2
