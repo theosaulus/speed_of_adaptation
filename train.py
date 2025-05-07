@@ -23,8 +23,8 @@ def main():
     seed = config.get('seed', 0)
 
     # Set lists of results
-    results_zero_list = None
-    results_few_list = None
+    results_zero_list = {}
+    results_few_list = {}
     
     # Load graph and dataset
     folder = os.path.join("datasets", config['data']['folder_path'])
@@ -33,7 +33,7 @@ def main():
         ]):
         print(f"Found {graph_file}")
         set_seed(seed + gindex)
-        
+
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {device}")
 
@@ -64,7 +64,6 @@ def main():
             for var in intervention_list
             if var in train_interventions
         })
-        dataset_test['observational'] = {}
         dataset_test['interventional'] = {}
         dataset_test['interventional'].update({
             var: dataset['interventional'][var]
@@ -78,24 +77,19 @@ def main():
         # Test
         model.to(device).eval()
         results_zero = evaluate_zero_shot(
-            model, graph, dataset, order, 
+            model, graph, dataset_test, order, 
             device=device
         )
         results_few = evaluate_few_shot(
-            model, graph, dataset, order,
+            model, graph, dataset_test, order,
             few_shot_num_samples=config['evaluation']['few_shot_num_samples'],
             few_shot_gradient_steps=config['evaluation']['few_shot_gradient_steps'],
             device=device
         )
 
         # Append results to the list
-        if results_zero_list is None:
-            results_zero_list = {k: [] for k in results_zero.keys()}
-            results_few_list = {k: [] for k in results_few.keys()}
-        for k in results_zero.keys():
-            results_zero_list[k].append(results_zero[k])
-        for k in results_few.keys():
-            results_few_list[k].append(results_few[k])
+        results_zero_list.update({k: results_zero_list.get(k, []) + [v] for k, v in results_zero.items()})
+        results_few_list.update({k: results_few_list.get(k, []) + [v] for k, v in results_few.items()})
     
     # Print results
     results_zero_avg = {k: sum(v) / len(v) for k, v in results_zero_list.items()}
