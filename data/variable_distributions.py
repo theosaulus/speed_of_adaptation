@@ -102,7 +102,13 @@ class ConstantDist(DiscreteProbDist):
     def load_from_state_dict(state_dict):
         obj = ConstantDist(state_dict["constant"], state_dict["val_range"])
         return obj
-
+    
+    def prob_func(self, inputs, batch_size):
+        # if self.constant.shape[-1] == batch_size:
+        #     return F.one_hot(self.constant).cpu().numpy()
+        # else:
+        #     return np.repeat(self.constant.cpu().numpy(), batch_size)
+        return self.constant
 
 class CategoricalDist(DiscreteProbDist):
 

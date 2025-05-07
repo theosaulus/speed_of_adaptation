@@ -11,17 +11,21 @@ def evaluate_bounds(graph, dataset, order, device):
     results = {}
     
     # Observational regime
-    X_obs, _ = sample_dict_to_tensor(dataset['observational'], device, order)
-    X_obs = X_obs.to(device)
-    results['bound_obs'] = compute_nll_bound(graph, X_obs)
+    if 'observational' in dataset:
+        X_obs, _ = sample_dict_to_tensor(dataset['observational'], device, order)
+        X_obs = X_obs.to(device)
+        results['bound_obs'] = compute_nll_bound(graph, X_obs)
 
     # Interventional regimes
     for var_name, sample_dict in dataset['interventional'].items():
         X_int, _ = sample_dict_to_tensor(sample_dict, device, order)
         X_int = X_int.to(device)
 
-        graph_int = graph.copy()
-        graph_int = graph_int.get_intervened_graph({var_name: X_int[:, graph.variables.index(var_name)]})
+        variable_names = [var.name for var in graph.variables]
+        if var_name not in variable_names:
+            raise ValueError(f"Variable '{var_name}' not found in graph variables.")
+        var_index = variable_names.index(var_name)
+        graph_int = graph.get_intervened_graph({var_name: X_int[:, var_index]})
         
         bound_int = compute_nll_bound(graph_int, X_int)
         results[f'bound_{var_name}'] = bound_int
@@ -36,18 +40,23 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
     results = {}
 
     # Observational regime
-    X_obs, _ = sample_dict_to_tensor(dataset['observational'], device, order)
-    X_obs = X_obs.to(device)
-    results['raw_pseudo_nll_obs'] = - pseudo_ll_loss(model, X_obs)
-    results['nll_on_gt_obs'] = compute_nll_on_ground_truth(model, graph, X_obs)
+    if 'observational' in dataset:
+        X_obs, _ = sample_dict_to_tensor(dataset['observational'], device, order)
+        X_obs = X_obs.to(device)
+        results['raw_pseudo_nll_obs'] = - pseudo_ll_loss(model, X_obs)
+        results['nll_on_gt_obs'] = compute_nll_on_ground_truth(model, graph, X_obs)
 
     # Interventional regimes
     for var_name, sample_dict in dataset['interventional'].items():
         X_int, _ = sample_dict_to_tensor(sample_dict, device, order)
         X_int = X_int.to(device)
 
-        graph_int = graph.copy()
-        graph_int = graph_int.get_intervened_graph({var_name: X_int[:, graph.variables.index(var_name)]})
+        variable_names = [var.name for var in graph.variables]
+        if var_name not in variable_names:
+            raise ValueError(f"Variable '{var_name}' not found in graph variables.")
+        var_index = variable_names.index(var_name)
+        graph_int = graph.get_intervened_graph({var_name: X_int[:, var_index]})
+        # graph_int = graph.get_intervened_graph({var_name: X_int[:, graph.variables.index(var_name)]})
 
         with torch.no_grad():
             raw_nll = - pseudo_ll_loss(model, X_int)
@@ -83,8 +92,12 @@ def evaluate_few_shot(
             X_int = X_int.to(device)
             N = X_int.size(0)
 
-            graph_int = graph.copy()
-            graph_int = graph_int.get_intervened_graph({var_name: X_int[:, graph.variables.index(var_name)]})
+            variable_names = [var.name for var in graph.variables]
+            if var_name not in variable_names:
+                raise ValueError(f"Variable '{var_name}' not found in graph variables.")
+            var_index = variable_names.index(var_name)
+            graph_int = graph.get_intervened_graph({var_name: X_int[:, var_index]})
+            # graph_int = graph.get_intervened_graph({var_name: X_int[:, graph.variables.index(var_name)]})
 
             # if not enough samples error
             if K >= N:
