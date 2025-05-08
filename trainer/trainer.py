@@ -63,11 +63,14 @@ def train_model(graph, dataset, order, config, device):
 
     if obj_type == 'pseudo_ll':
         optimizer = Adam(model.parameters(), lr=lr)
-        # TODO: add a mix of obs and int data
-        obs_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order)
+        data_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order)
+        for var_name, sample_dict in dataset['interventional'].items():
+            int_tensor, _ = sample_dict_to_tensor(sample_dict, device, order)
+            data_tensor = torch.cat((data_tensor, int_tensor), dim=0)
+
         for epoch in range(epochs):
-            idx = np.random.choice(obs_tensor.size(0), batch_size, replace=False)
-            X = obs_tensor[idx].to(device)
+            idx = np.random.choice(data_tensor.size(0), batch_size, replace=False)
+            X = data_tensor[idx].to(device)
             loss = pseudo_ll_loss(model, X)
             optimizer.zero_grad()
             loss.backward()
