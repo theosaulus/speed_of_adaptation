@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from models.cpdag_utils import compute_cpdag
 
 def fully_connected_mask(num_nodes):
@@ -18,9 +19,9 @@ def skeleton_mask(true_graph):
     return ((A + A.transpose(0,1)) > 0).float()
 
 def cpdag_mask(true_graph):
-    # compute_cpdag should return a numpy array or torch.Tensor
-    cpdag = compute_cpdag(true_graph)
-    return torch.tensor(cpdag, dtype=torch.float32)
+    dag_np = true_graph.detach().cpu().numpy().astype(np.int8)
+    cpdag = compute_cpdag(dag_np)
+    return torch.tensor(cpdag, dtype=torch.float32, device=true_graph.device)
 
 def create_mask(graph, mask='causal', device=None):
     """
