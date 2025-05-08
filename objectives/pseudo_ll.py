@@ -16,6 +16,7 @@ def pseudo_ll_loss(model, x, params=None, var_indices=None):
         var_indices = range(num_vars)
     for i in var_indices:
         probs = outputs[:, i, :]
+        logp = (probs + 1e-12).log()
         target = x[:, i].long()
-        loss += F.cross_entropy(probs, target)
+        loss += F.nll_loss(logp, target)
     return loss / float(len(list(var_indices)))
