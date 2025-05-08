@@ -27,16 +27,9 @@ def evaluate_bounds(graph, dataset, order, device):
         X_int, _ = sample_dict_to_tensor(sample_dict, device, order)
         X_int = X_int.to(device)
 
-        # var_index = order.index(var_name)
-        # constant = int(X_int[0, var_index].item())
-        # graph_int = graph.get_intervened_graph({var_name: constant})
-
-        # num_vars = X_int.shape[1]
-        # all_idxs = list(range(num_vars))
         x_col = name2xcol[var_name]
         gidx  = name2gidx[var_name]
 
-        # 3) Create the intervened graph correctly
         constant  = int(X_int[0, x_col].item())
         graph_int = graph.get_intervened_graph({var_name: constant})
 
@@ -104,6 +97,8 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
     Returns a dict with per‑regime NLL.
     """
     results = {}
+    name2gidx = {v.name: i for i, v in enumerate(graph.variables)}
+    name2xcol = {name: idx for idx, name in enumerate(order)}
     node_relations, one_hop_relations, global_roles, in_degrees, out_degrees, total_degrees =\
         graph.node_relations
 
@@ -120,24 +115,24 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
         X_int, _ = sample_dict_to_tensor(sample_dict, device, order)
         X_int = X_int.to(device)
 
-        var_index = order.index(var_name)
-        graph_int = graph.get_intervened_graph({var_name: X_int[:, var_index]})
+        x_col = name2xcol[var_name]
+        gidx  = name2gidx[var_name]
+
+        constant  = int(X_int[0, x_col].item())
+        graph_int = graph.get_intervened_graph({var_name: constant})
 
         with torch.no_grad():
-            num_vars = X_int.shape[1]
-            all_idxs = list(range(num_vars))
-
             # subsets wrt this intervention target
-            parents = np.where(one_hop_relations[var_index] == 1)[0].tolist()
-            children = np.where(one_hop_relations[var_index] == -1)[0].tolist()
-            ancestors = np.where(node_relations[var_index] == 1)[0].tolist()
-            descendants = np.where(node_relations[var_index] == -1)[0].tolist()
+            parents = np.where(one_hop_relations[gidx] == 1)[0].tolist()
+            children = np.where(one_hop_relations[gidx] == -1)[0].tolist()
+            ancestors = np.where(node_relations[gidx] == 1)[0].tolist()
+            descendants = np.where(node_relations[gidx] == -1)[0].tolist()
             roots = np.where(global_roles == 'root')[0].tolist()
             leaves = np.where(global_roles == 'leaf')[0].tolist()
 
             # raw pseudo-LL on each subset
             raw_nll_full        = pseudo_ll_loss(model, X_int)
-            raw_nll_intervention= pseudo_ll_loss(model, X_int, var_indices=[var_index])
+            raw_nll_intervention= pseudo_ll_loss(model, X_int, var_indices=[gidx])
             raw_nll_root        = pseudo_ll_loss(model, X_int, var_indices=roots)      if roots        else None
             raw_nll_leaf        = pseudo_ll_loss(model, X_int, var_indices=leaves)     if leaves       else None
             raw_nll_ancestor    = pseudo_ll_loss(model, X_int, var_indices=ancestors)  if ancestors    else None
@@ -147,7 +142,7 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
 
             # ground-truth NLL on each subset (observational graph)
             nll_obs_full        = compute_nll_on_ground_truth(model, graph, X_int, order)
-            nll_obs_intervention= compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=[var_index])
+            nll_obs_intervention= compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=[gidx])
             nll_obs_root        = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=roots)       if roots        else None
             nll_obs_leaf        = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=leaves)      if leaves       else None
             nll_obs_ancestor    = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=ancestors)   if ancestors    else None
@@ -157,7 +152,7 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
 
             # ground-truth NLL on each subset (intervened graph)
             nll_int_full        = compute_nll_on_ground_truth(model, graph_int, X_int, order)
-            nll_int_intervention= compute_nll_on_ground_truth(model, graph_int, X_int, order, var_indices=[var_index])
+            nll_int_intervention= compute_nll_on_ground_truth(model, graph_int, X_int, order, var_indices=[gidx])
             nll_int_root        = compute_nll_on_ground_truth(model, graph_int, X_int, order, var_indices=roots)       if roots        else None
             nll_int_leaf        = compute_nll_on_ground_truth(model, graph_int, X_int, order, var_indices=leaves)      if leaves       else None
             nll_int_ancestor    = compute_nll_on_ground_truth(model, graph_int, X_int, order, var_indices=ancestors)   if ancestors    else None
@@ -233,6 +228,8 @@ def evaluate_few_shot(
     """
     S = few_shot_gradient_steps
     results = {}
+    name2gidx = {v.name: i for i, v in enumerate(graph.variables)}
+    name2xcol = {name: idx for idx, name in enumerate(order)}
     node_relations, one_hop_relations, global_roles, in_degrees, out_degrees, total_degrees =\
         graph.node_relations
 
@@ -242,14 +239,16 @@ def evaluate_few_shot(
             X_int = X_int.to(device)
             N = X_int.size(0)
 
-            var_index = order.index(var_name)
-            graph_int = graph.get_intervened_graph({var_name: X_int[:, var_index]})
+            x_col = name2xcol[var_name]
+            gidx  = name2gidx[var_name]
+
+            constant  = int(X_int[0, x_col].item())
+            graph_int = graph.get_intervened_graph({var_name: constant})
 
             # if not enough samples error
             if K > N:
                 print(f"Not enough samples for {var_name} regime: {N} < {K}")
                 continue
-                # raise ValueError(f"Not enough samples for {var_name} regime: {N} < {K}")
             
             else:
                 finetuned_model = copy.deepcopy(model).to(device).train()
@@ -269,20 +268,17 @@ def evaluate_few_shot(
                 finetuned_model.eval()
 
             with torch.no_grad():
-                num_vars = X_int.shape[1]
-                all_idxs = list(range(num_vars))
-
                 # subsets wrt this intervention target
-                parents = np.where(one_hop_relations[var_index] == 1)[0].tolist()
-                children = np.where(one_hop_relations[var_index] == -1)[0].tolist()
-                ancestors = np.where(node_relations[var_index] == 1)[0].tolist()
-                descendants = np.where(node_relations[var_index] == -1)[0].tolist()
+                parents = np.where(one_hop_relations[gidx] == 1)[0].tolist()
+                children = np.where(one_hop_relations[gidx] == -1)[0].tolist()
+                ancestors = np.where(node_relations[gidx] == 1)[0].tolist()
+                descendants = np.where(node_relations[gidx] == -1)[0].tolist()
                 roots = np.where(global_roles == 'root')[0].tolist()
                 leaves = np.where(global_roles == 'leaf')[0].tolist()
 
                 # raw pseudo-LL on each subset
                 raw_nll_full        = pseudo_ll_loss(finetuned_model, X_int)
-                raw_nll_intervention= pseudo_ll_loss(finetuned_model, X_int, var_indices=[var_index])
+                raw_nll_intervention= pseudo_ll_loss(finetuned_model, X_int, var_indices=[gidx])
                 raw_nll_root        = pseudo_ll_loss(finetuned_model, X_int, var_indices=roots)      if roots        else None
                 raw_nll_leaf        = pseudo_ll_loss(finetuned_model, X_int, var_indices=leaves)     if leaves       else None
                 raw_nll_ancestor    = pseudo_ll_loss(finetuned_model, X_int, var_indices=ancestors)  if ancestors    else None
@@ -292,7 +288,7 @@ def evaluate_few_shot(
 
                 # ground-truth NLL on each subset (observational graph)
                 nll_obs_full        = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order)
-                nll_obs_intervention= compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=[var_index])
+                nll_obs_intervention= compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=[gidx])
                 nll_obs_root        = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=roots)       if roots        else None
                 nll_obs_leaf        = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=leaves)      if leaves       else None
                 nll_obs_ancestor    = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=ancestors)   if ancestors    else None
@@ -302,7 +298,7 @@ def evaluate_few_shot(
 
                 # ground-truth NLL on each subset (intervened graph)
                 nll_int_full        = compute_nll_on_ground_truth(finetuned_model, graph_int, X_int, order)
-                nll_int_intervention= compute_nll_on_ground_truth(finetuned_model, graph_int, X_int, order, var_indices=[var_index])
+                nll_int_intervention= compute_nll_on_ground_truth(finetuned_model, graph_int, X_int, order, var_indices=[gidx])
                 nll_int_root        = compute_nll_on_ground_truth(finetuned_model, graph_int, X_int, order, var_indices=roots)       if roots        else None
                 nll_int_leaf        = compute_nll_on_ground_truth(finetuned_model, graph_int, X_int, order, var_indices=leaves)      if leaves       else None
                 nll_int_ancestor    = compute_nll_on_ground_truth(finetuned_model, graph_int, X_int, order, var_indices=ancestors)   if ancestors    else None
