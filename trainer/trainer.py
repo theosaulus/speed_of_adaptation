@@ -63,7 +63,7 @@ def train_model(graph, dataset, order, config, device):
 
     if obj_type == 'pseudo_ll':
         optimizer = Adam(model.parameters(), lr=lr)
-        # only observational data
+        # TODO: add a mix of obs and int data
         obs_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order)
         for epoch in range(epochs):
             idx = np.random.choice(obs_tensor.size(0), batch_size, replace=False)
