@@ -17,7 +17,7 @@ data:
   # edge_prob: 0.3
   size_obs: 1000
   size_int: 1000       # number of interv samples in total
-  num_train_int: 14
+  num_train_int: 10
 
 training:
   epochs: 1000
@@ -32,4 +32,4 @@ evaluation:
   few_shot_lr: 0.1
 
 seed: 0
-num_seeds: 10
+num_seeds: 3

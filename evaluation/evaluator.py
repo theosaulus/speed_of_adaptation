@@ -215,7 +215,7 @@ def evaluate_few_shot(
             graph_int = graph.get_intervened_graph({var_name: X_int[:, var_index]})
 
             # if not enough samples error
-            if K >= N:
+            if K > N:
                 raise ValueError(f"Not enough samples for {var_name} regime: {N} < {K}")
             
             else:
