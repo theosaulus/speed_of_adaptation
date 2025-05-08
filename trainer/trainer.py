@@ -4,6 +4,7 @@ from torch.optim import Adam
 
 from data.dataset_creation import build_dataset, sample_dict_to_tensor
 from data.graph_generation import generate_categorical_graph, get_graph_func
+from data.utils import set_seed
 from models.model_factory import create_model
 from models.masks import create_mask
 from objectives.pseudo_ll import pseudo_ll_loss
@@ -42,8 +43,7 @@ def tasks_from_dataset(dataset, batch_size, device, order):
 
 
 def train_model(graph, dataset, order, config, device):
-    torch.manual_seed(config.get('seed', 0))
-    np.random.seed(config.get('seed', 0))
+    set_seed(config.get('seed', 0))
 
     # Instantiate the model
     mask = create_mask(graph, config['model']['mask'], device=device)
@@ -69,13 +69,14 @@ def train_model(graph, dataset, order, config, device):
             data_tensor = torch.cat((data_tensor, int_tensor), dim=0)
 
         for epoch in range(epochs):
+            model.train()
             idx = np.random.choice(data_tensor.size(0), batch_size, replace=False)
             X = data_tensor[idx].to(device)
             loss = pseudo_ll_loss(model, X)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if epoch % 10 == 0:
+            if epoch % 200 == 0:
                 print(f"[Epoch {epoch}] Pseudo-LL loss: {loss.item():.4f}")
 
     elif obj_type == 'maml':

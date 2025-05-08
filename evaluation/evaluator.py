@@ -50,14 +50,14 @@ def evaluate_bounds(graph, dataset, order, device):
         bound_obs_parent = compute_nll_bound(graph, graph_int, X_int, order, var_indices=parents) if parents else None
         bound_obs_child = compute_nll_bound(graph, graph_int, X_int, order, var_indices=children) if children else None
 
-        bound_int_full = compute_nll_bound(graph_int, graph_int, X_int, order)
-        bound_int_intervention = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=[gidx])
-        bound_int_root = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=roots) if roots else None
-        bound_int_leaf = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=leaves) if leaves else None
-        bound_int_ancestor = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=ancestors) if ancestors else None
-        bound_int_descendant = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=descendants) if descendants else None
-        bound_int_parent = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=parents) if parents else None
-        bound_int_child = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=children) if children else None
+        # bound_int_full = compute_nll_bound(graph_int, graph_int, X_int, order)
+        # bound_int_intervention = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=[gidx])
+        # bound_int_root = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=roots) if roots else None
+        # bound_int_leaf = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=leaves) if leaves else None
+        # bound_int_ancestor = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=ancestors) if ancestors else None
+        # bound_int_descendant = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=descendants) if descendants else None
+        # bound_int_parent = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=parents) if parents else None
+        # bound_int_child = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=children) if children else None
 
         results[f'bound_obs_{var_name}_full'] = bound_obs_full
         results[f'bound_obs_{var_name}_intervention'] = bound_obs_intervention
@@ -68,26 +68,27 @@ def evaluate_bounds(graph, dataset, order, device):
         results[f'bound_obs_{var_name}_parent'] = bound_obs_parent
         results[f'bound_obs_{var_name}_child'] = bound_obs_child
 
-        results[f'bound_int_{var_name}_full'] = bound_int_full
-        results[f'bound_int_{var_name}_intervention'] = bound_int_intervention
-        results[f'bound_int_{var_name}_root'] = bound_int_root
-        results[f'bound_int_{var_name}_leaf'] = bound_int_leaf
-        results[f'bound_int_{var_name}_ancestor'] = bound_int_ancestor
-        results[f'bound_int_{var_name}_descendant'] = bound_int_descendant
-        results[f'bound_int_{var_name}_parent'] = bound_int_parent
-        results[f'bound_int_{var_name}_child'] = bound_int_child
+        # results[f'bound_int_{var_name}_full'] = bound_int_full
+        # results[f'bound_int_{var_name}_intervention'] = bound_int_intervention
+        # results[f'bound_int_{var_name}_root'] = bound_int_root
+        # results[f'bound_int_{var_name}_leaf'] = bound_int_leaf
+        # results[f'bound_int_{var_name}_ancestor'] = bound_int_ancestor
+        # results[f'bound_int_{var_name}_descendant'] = bound_int_descendant
+        # results[f'bound_int_{var_name}_parent'] = bound_int_parent
+        # results[f'bound_int_{var_name}_child'] = bound_int_child
 
-        inter_vars = list(dataset.get('interventional', {}).keys())
-        for metric in ('bound_obs', 'bound_int'):
-            for subset in ('full', 'intervention', 'root', 'leaf', 'ancestor', 'descendant', 'parent', 'child'):
-                key = f"{metric}_all_{subset}"
-                vals = []
-                for v in inter_vars:
-                    k = f"{metric}_{v}_{subset}"
-                    if k in results and results[k] is not None:
-                        vals.append(results[k])
-                if vals:
-                    results[key] = np.mean([v.cpu().numpy() if isinstance(v, torch.Tensor) else v for v in vals])
+    inter_vars = list(dataset.get('interventional', {}).keys())
+    # for metric in ('bound_obs', 'bound_int'):
+    metric = 'bound_obs'
+    for subset in ('full', 'intervention', 'root', 'leaf', 'ancestor', 'descendant', 'parent', 'child'):
+        key = f"{metric}_all_{subset}"
+        vals = []
+        for v in inter_vars:
+            k = f"{metric}_{v}_{subset}"
+            if k in results and results[k] is not None:
+                vals.append(results[k])
+        if vals:
+            results[key] = np.mean([v.cpu().numpy() if isinstance(v, torch.Tensor) else v for v in vals])
 
     return results    
 
@@ -140,15 +141,15 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
             raw_nll_parent      = pseudo_ll_loss(model, X_int, var_indices=parents)    if parents      else None
             raw_nll_child       = pseudo_ll_loss(model, X_int, var_indices=children)   if children     else None
 
-            # ground-truth NLL on each subset (observational graph)
-            nll_obs_full        = compute_nll_on_ground_truth(model, graph, X_int, order)
-            nll_obs_intervention= compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=[gidx])
-            nll_obs_root        = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=roots)       if roots        else None
-            nll_obs_leaf        = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=leaves)      if leaves       else None
-            nll_obs_ancestor    = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=ancestors)   if ancestors    else None
-            nll_obs_descendant  = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=descendants) if descendants  else None
-            nll_obs_parent      = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=parents)     if parents      else None
-            nll_obs_child       = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=children)    if children     else None
+            # # ground-truth NLL on each subset (observational graph)
+            # nll_obs_full        = compute_nll_on_ground_truth(model, graph, X_int, order)
+            # nll_obs_intervention= compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=[gidx])
+            # nll_obs_root        = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=roots)       if roots        else None
+            # nll_obs_leaf        = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=leaves)      if leaves       else None
+            # nll_obs_ancestor    = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=ancestors)   if ancestors    else None
+            # nll_obs_descendant  = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=descendants) if descendants  else None
+            # nll_obs_parent      = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=parents)     if parents      else None
+            # nll_obs_child       = compute_nll_on_ground_truth(model, graph, X_int, order, var_indices=children)    if children     else None
 
             # ground-truth NLL on each subset (intervened graph)
             nll_int_full        = compute_nll_on_ground_truth(model, graph_int, X_int, order)
@@ -176,14 +177,14 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
         results[f'raw_pseudo_nll_{var_name}_parent']       = _to_numpy(raw_nll_parent)
         results[f'raw_pseudo_nll_{var_name}_child']        = _to_numpy(raw_nll_child)
 
-        results[f'nll_on_gt_obs_{var_name}_full']         = _to_numpy(nll_obs_full)
-        results[f'nll_on_gt_obs_{var_name}_intervention'] = _to_numpy(nll_obs_intervention)
-        results[f'nll_on_gt_obs_{var_name}_root']         = _to_numpy(nll_obs_root)
-        results[f'nll_on_gt_obs_{var_name}_leaf']         = _to_numpy(nll_obs_leaf)
-        results[f'nll_on_gt_obs_{var_name}_ancestor']     = _to_numpy(nll_obs_ancestor)
-        results[f'nll_on_gt_obs_{var_name}_descendant']   = _to_numpy(nll_obs_descendant)
-        results[f'nll_on_gt_obs_{var_name}_parent']       = _to_numpy(nll_obs_parent)
-        results[f'nll_on_gt_obs_{var_name}_child']        = _to_numpy(nll_obs_child)
+        # results[f'nll_on_gt_obs_{var_name}_full']         = _to_numpy(nll_obs_full)
+        # results[f'nll_on_gt_obs_{var_name}_intervention'] = _to_numpy(nll_obs_intervention)
+        # results[f'nll_on_gt_obs_{var_name}_root']         = _to_numpy(nll_obs_root)
+        # results[f'nll_on_gt_obs_{var_name}_leaf']         = _to_numpy(nll_obs_leaf)
+        # results[f'nll_on_gt_obs_{var_name}_ancestor']     = _to_numpy(nll_obs_ancestor)
+        # results[f'nll_on_gt_obs_{var_name}_descendant']   = _to_numpy(nll_obs_descendant)
+        # results[f'nll_on_gt_obs_{var_name}_parent']       = _to_numpy(nll_obs_parent)
+        # results[f'nll_on_gt_obs_{var_name}_child']        = _to_numpy(nll_obs_child)
 
         results[f'nll_on_gt_int_{var_name}_full']         = _to_numpy(nll_int_full)
         results[f'nll_on_gt_int_{var_name}_intervention'] = _to_numpy(nll_int_intervention)
@@ -198,7 +199,8 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
     inter_vars = list(dataset.get('interventional', {}).keys())
 
     # for each metric type and each subset suffix
-    for metric in ('raw_pseudo_nll', 'nll_on_gt_obs', 'nll_on_gt_int'):
+    # for metric in ('raw_pseudo_nll', 'nll_on_gt_obs', 'nll_on_gt_int'):
+    for metric in ('raw_pseudo_nll', 'nll_on_gt_int'):
         for subset in ('full', 'intervention', 'root', 'leaf', 'ancestor', 'descendant', 'parent', 'child'):
             key = f"{metric}_all_{subset}"
             vals = []
@@ -286,15 +288,15 @@ def evaluate_few_shot(
                 raw_nll_parent      = pseudo_ll_loss(finetuned_model, X_int, var_indices=parents)    if parents      else None
                 raw_nll_child       = pseudo_ll_loss(finetuned_model, X_int, var_indices=children)   if children     else None
 
-                # ground-truth NLL on each subset (observational graph)
-                nll_obs_full        = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order)
-                nll_obs_intervention= compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=[gidx])
-                nll_obs_root        = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=roots)       if roots        else None
-                nll_obs_leaf        = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=leaves)      if leaves       else None
-                nll_obs_ancestor    = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=ancestors)   if ancestors    else None
-                nll_obs_descendant  = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=descendants) if descendants  else None
-                nll_obs_parent      = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=parents)     if parents      else None
-                nll_obs_child       = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=children)    if children     else None
+                # # ground-truth NLL on each subset (observational graph)
+                # nll_obs_full        = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order)
+                # nll_obs_intervention= compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=[gidx])
+                # nll_obs_root        = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=roots)       if roots        else None
+                # nll_obs_leaf        = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=leaves)      if leaves       else None
+                # nll_obs_ancestor    = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=ancestors)   if ancestors    else None
+                # nll_obs_descendant  = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=descendants) if descendants  else None
+                # nll_obs_parent      = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=parents)     if parents      else None
+                # nll_obs_child       = compute_nll_on_ground_truth(finetuned_model, graph, X_int, order, var_indices=children)    if children     else None
 
                 # ground-truth NLL on each subset (intervened graph)
                 nll_int_full        = compute_nll_on_ground_truth(finetuned_model, graph_int, X_int, order)
@@ -322,14 +324,14 @@ def evaluate_few_shot(
             results[f'raw_pseudo_nll_{var_name}_{S}_shot_{K}_ex_parent']       = _to_numpy(raw_nll_parent)
             results[f'raw_pseudo_nll_{var_name}_{S}_shot_{K}_ex_child']        = _to_numpy(raw_nll_child)
 
-            results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_full']         = _to_numpy(nll_obs_full)
-            results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_intervention'] = _to_numpy(nll_obs_intervention)
-            results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_root']         = _to_numpy(nll_obs_root)
-            results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_leaf']         = _to_numpy(nll_obs_leaf)
-            results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_ancestor']     = _to_numpy(nll_obs_ancestor)
-            results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_descendant']   = _to_numpy(nll_obs_descendant)
-            results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_parent']       = _to_numpy(nll_obs_parent)
-            results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_child']        = _to_numpy(nll_obs_child)
+            # results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_full']         = _to_numpy(nll_obs_full)
+            # results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_intervention'] = _to_numpy(nll_obs_intervention)
+            # results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_root']         = _to_numpy(nll_obs_root)
+            # results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_leaf']         = _to_numpy(nll_obs_leaf)
+            # results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_ancestor']     = _to_numpy(nll_obs_ancestor)
+            # results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_descendant']   = _to_numpy(nll_obs_descendant)
+            # results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_parent']       = _to_numpy(nll_obs_parent)
+            # results[f'nll_on_gt_obs_{var_name}_{S}_shot_{K}_ex_child']        = _to_numpy(nll_obs_child)
 
             results[f'nll_on_gt_int_{var_name}_{S}_shot_{K}_ex_full']         = _to_numpy(nll_int_full)
             results[f'nll_on_gt_int_{var_name}_{S}_shot_{K}_ex_intervention'] = _to_numpy(nll_int_intervention)
@@ -344,7 +346,8 @@ def evaluate_few_shot(
         inter_vars = list(dataset.get('interventional', {}).keys())
 
         # for each metric type and each subset suffix
-        for metric in ('raw_pseudo_nll', 'nll_on_gt_obs', 'nll_on_gt_int'):
+        # for metric in ('raw_pseudo_nll', 'nll_on_gt_obs', 'nll_on_gt_int'):
+        for metric in ('raw_pseudo_nll', 'nll_on_gt_int'):
             for subset in ('full', 'intervention', 'root', 'leaf', 'ancestor', 'descendant', 'parent', 'child'):
                 key = f"{metric}_all_{S}_shot_{K}_ex_{subset}"
                 vals = []

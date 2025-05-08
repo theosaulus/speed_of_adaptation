@@ -4,6 +4,8 @@ import torch
 import io
 import os
 import numpy as np
+import wandb
+import time
 
 from trainer.trainer import train_model
 from evaluation.evaluator import evaluate_zero_shot, evaluate_few_shot, evaluate_bounds
@@ -23,6 +25,13 @@ def main():
         config = yaml.safe_load(f)
     seed = config.get('seed', 0)
 
+    if config.get('wandb', False):
+        wandb.init(
+            config=config,
+            project="generalization_speed_adaptation",
+            # name=f"{os.path.basename(args.config)}_{int(time.time())}",
+            entity="dhanya-shridar"
+        )
     # Set lists of results
     bounds_list = {}
     results_zero_list = {}
@@ -114,16 +123,42 @@ def main():
     
     print("\n=== Bounds ===")
     for k, v in bounds_avg.items():
-        if '_all_full' in k or '_all_intervention' in k or '_all_ancestor' in k or '_all_descendant' in k:
+        if '_all_' in k:# or '_all_intervention' in k or '_all_ancestor' in k or '_all_descendant' in k:
             print(f"{k:15s}: {v:.4f} ± {bounds_std[k]:.4f}")
     print("\n=== Zero-Shot Evaluation ===")
     for k, v in results_zero_avg.items():
-        if '_all_full' in k or '_all_intervention' in k or '_all_ancestor' in k or '_all_descendant' in k:
+        # if '_all_full' in k or '_all_intervention' in k or '_all_ancestor' in k or '_all_descendant' in k:
+        if '_all_' in k:
             print(f"{k:15s}: {v:.4f} ± {results_zero_std[k]:.4f}")
     print("\n=== Few-Shot Evaluation ===")
     for k, v in results_few_avg.items():
-        if '_all_10_shot_30_ex' in k and ('_full' in k or '_intervention' in k or '_ancestor' in k or '_descendant' in k):
+        # if '_all_10_shot_30_ex' in k and ('_full' in k or '_intervention' in k or '_ancestor' in k or '_descendant' in k):
+        if '_all_' in k and '10_ex' in k:
             print(f"{k:15s}: {v:.4f} ± {results_few_std[k]:.4f}")
+
+    if config.get('wandb', False):
+        for key, mean in bounds_avg.items():
+            if '_all_' in key:
+                wandb.log({ 
+                    f"Bounds/{key}": mean,
+                    f"Bounds/{key}_min": mean - bounds_std[key],
+                    f"Bounds/{key}_max": mean + bounds_std[key],
+                })
+        for key, mean in results_zero_avg.items():
+            if '_all_' in key:
+                wandb.log({ 
+                    f"Zero-Shot/{key}": mean,
+                    f"Zero-Shot/{key}_min": mean - results_zero_std[key],
+                    f"Zero-Shot/{key}_max": mean + results_zero_std[key],
+                })
+        for key, mean in results_few_avg.items():
+            if '_all_' in key:
+                wandb.log({ 
+                    f"Few-Shot/{key}": mean,
+                    f"Few-Shot/{key}_min": mean - results_few_std[key],
+                    f"Few-Shot/{key}_max": mean + results_few_std[key],
+                })
+        wandb.finish()
 
 if __name__ == '__main__':
     main()

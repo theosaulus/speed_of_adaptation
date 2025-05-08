@@ -33,3 +33,4 @@ evaluation:
 
 seed: 0
 num_seeds: 2
+wandb: True
