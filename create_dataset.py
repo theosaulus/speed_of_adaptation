@@ -63,7 +63,7 @@ if __name__ == '__main__':
                         help='Number of categories/different values each variable can take.')
     parser.add_argument('--edge_prob', type=float, default=[0.3, 0.7],
                         help='For random graphs, the probability of two arbitrary nodes to be connected.')
-    parser.add_argument('--connected_graphs', action='store_true', default=True,
+    parser.add_argument('--connected_graphs', action='store_true', default=False,
                         help='If set, the generated graphs will be connected.')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed for reproducibility.')
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     for num_vars in args.num_vars:
         for num_categs in args.num_categs:
             for edge_prob in args.edge_prob:
-                folder = f"datasets/{args.graph_type}_d{num_vars}_k{num_categs}_p{str(edge_prob).replace('.', '')}"
+                folder = f"datasets/{args.graph_type}_d{num_vars}_k{num_categs}_p{str(edge_prob).replace('.', '')}_{'connected' if args.connected_graphs else 'disconnected'}"
                 os.makedirs(folder, exist_ok=True)
 
                 with open(os.path.join(folder, "args.json"), "w") as f:
@@ -92,7 +92,7 @@ if __name__ == '__main__':
                                                     use_nn=True,
                                                     graph_func=get_graph_func(args.graph_type),
                                                     seed=seed)
-                    file_id = "%s_%s_%i_%i_%s" % (str(gindex+1).zfill(3), args.graph_type, num_vars, seed, "connected" if args.connected_graphs else "disconnected")
+                    file_id = "%s_%s_%i_%i" % (str(gindex+1).zfill(3), args.graph_type, num_vars, seed)
                     graph.save_to_file(os.path.join(folder, file_id + ".pt"))
                     export_graph(
                         filename=os.path.join(folder, file_id),
