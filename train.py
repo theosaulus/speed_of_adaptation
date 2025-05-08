@@ -122,7 +122,7 @@ def main():
             print(f"{k:15s}: {v:.4f} ± {results_zero_std[k]:.4f}")
     print("\n=== Few-Shot Evaluation ===")
     for k, v in results_few_avg.items():
-        if '_all_3_shot_10_ex' in k and ('_full' in k or '_intervention' in k or '_ancestor' in k or '_descendant' in k):
+        if '_all_10_shot_30_ex' in k and ('_full' in k or '_intervention' in k or '_ancestor' in k or '_descendant' in k):
             print(f"{k:15s}: {v:.4f} ± {results_few_std[k]:.4f}")
 
 if __name__ == '__main__':
