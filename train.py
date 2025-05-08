@@ -83,22 +83,21 @@ def main():
         # Test
         model.to(device).eval()
 
-        with torch.no_grad():
-            bounds = evaluate_bounds(
-                graph, dataset_test, order,
-                device=device,
-            )
-            results_zero = evaluate_zero_shot(
-                model, graph, dataset_test, order, 
-                device=device
-            )
-            results_few = evaluate_few_shot(
-                model, graph, dataset_test, order,
-                few_shot_num_samples=config['evaluation']['few_shot_num_samples'],
-                few_shot_gradient_steps=config['evaluation']['few_shot_gradient_steps'],
-                device=device,
-                few_shot_lr=config['evaluation']['few_shot_lr'],
-            )
+        bounds = evaluate_bounds(
+            graph, dataset_test, order,
+            device=device,
+        )
+        results_zero = evaluate_zero_shot(
+            model, graph, dataset_test, order, 
+            device=device
+        )
+        results_few = evaluate_few_shot(
+            model, graph, dataset_test, order,
+            few_shot_num_samples=config['evaluation']['few_shot_num_samples'],
+            few_shot_gradient_steps=config['evaluation']['few_shot_gradient_steps'],
+            device=device,
+            few_shot_lr=config['evaluation']['few_shot_lr'],
+        )
 
         # Append results to the list
         bounds_list.update({k: bounds_list.get(k, []) + [v] for k, v in bounds.items()})
@@ -123,7 +122,7 @@ def main():
             print(f"{k:15s}: {v:.4f} ± {results_zero_std[k]:.4f}")
     print("\n=== Few-Shot Evaluation ===")
     for k, v in results_few_avg.items():
-        if '_all_full' in k or '_all_intervention' in k or '_all_ancestor' in k or '_all_descendant' in k:
+        if '_all_3_shot_10_ex' in k and ('_full' in k or '_intervention' in k or '_ancestor' in k or '_descendant' in k):
             print(f"{k:15s}: {v:.4f} ± {results_few_std[k]:.4f}")
 
 if __name__ == '__main__':

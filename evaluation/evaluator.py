@@ -81,8 +81,9 @@ def evaluate_zero_shot(model, graph, dataset, order, device):
     if 'observational' in dataset:
         X_obs, _ = sample_dict_to_tensor(dataset['observational'], device, order)
         X_obs = X_obs.to(device)
-        results['raw_pseudo_nll_obs'] = - pseudo_ll_loss(model, X_obs)
-        results['nll_on_gt_obs'] = compute_nll_on_ground_truth(model, graph, X_obs)
+        with torch.no_grad():
+            results['raw_pseudo_nll_obs'] = - pseudo_ll_loss(model, X_obs)
+            results['nll_on_gt_obs'] = compute_nll_on_ground_truth(model, graph, X_obs)
 
     # Interventional regimes
     for var_name, sample_dict in dataset['interventional'].items():
