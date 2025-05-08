@@ -9,6 +9,10 @@ from evaluation.compute_nll import compute_nll_bound, compute_nll_on_ground_trut
 
 def evaluate_bounds(graph, dataset, order, device):
     results = {}
+
+    name2gidx = {v.name: i for i, v in enumerate(graph.variables)}
+    name2xcol = {name: idx for idx, name in enumerate(order)}
+    
     node_relations, one_hop_relations, global_roles, in_degrees, out_degrees, total_degrees =\
         graph.node_relations
     
@@ -16,55 +20,81 @@ def evaluate_bounds(graph, dataset, order, device):
     if 'observational' in dataset:
         X_obs, _ = sample_dict_to_tensor(dataset['observational'], device, order)
         X_obs = X_obs.to(device)
-        results['bound_obs'] = compute_nll_bound(graph, X_obs, order)
+        results['bound_obs_nointerv'] = compute_nll_bound(graph, graph, X_obs, order)
 
     # Interventional regimes
     for var_name, sample_dict in dataset['interventional'].items():
         X_int, _ = sample_dict_to_tensor(sample_dict, device, order)
         X_int = X_int.to(device)
 
-        var_index = order.index(var_name)
-        graph_int = graph.get_intervened_graph({var_name: X_int[:, var_index]})
+        # var_index = order.index(var_name)
+        # constant = int(X_int[0, var_index].item())
+        # graph_int = graph.get_intervened_graph({var_name: constant})
 
-        num_vars = X_int.shape[1]
-        all_idxs = list(range(num_vars))
+        # num_vars = X_int.shape[1]
+        # all_idxs = list(range(num_vars))
+        x_col = name2xcol[var_name]
+        gidx  = name2gidx[var_name]
+
+        # 3) Create the intervened graph correctly
+        constant  = int(X_int[0, x_col].item())
+        graph_int = graph.get_intervened_graph({var_name: constant})
 
         # subsets wrt this intervention target
-        parents = np.where(one_hop_relations[var_index] == 1)[0].tolist()
-        children = np.where(one_hop_relations[var_index] == -1)[0].tolist()
-        ancestors = np.where(node_relations[var_index] == 1)[0].tolist()
-        descendants = np.where(node_relations[var_index] == -1)[0].tolist()
+        parents = np.where(one_hop_relations[gidx] == 1)[0].tolist()
+        children = np.where(one_hop_relations[gidx] == -1)[0].tolist()
+        ancestors = np.where(node_relations[gidx] == 1)[0].tolist()
+        descendants = np.where(node_relations[gidx] == -1)[0].tolist()
         roots = np.where(global_roles == 'root')[0].tolist()
         leaves = np.where(global_roles == 'leaf')[0].tolist()
 
-        bound_int_full = compute_nll_bound(graph_int, X_int, order)
-        bound_int_intervention = compute_nll_bound(graph_int, X_int, order, var_indices=[var_index])
-        bound_int_root = compute_nll_bound(graph_int, X_int, order, var_indices=roots) if roots else None
-        bound_int_leaf = compute_nll_bound(graph_int, X_int, order, var_indices=leaves) if leaves else None
-        bound_int_ancestor = compute_nll_bound(graph_int, X_int, order, var_indices=ancestors) if ancestors else None
-        bound_int_descendant = compute_nll_bound(graph_int, X_int, order, var_indices=descendants) if descendants else None
-        bound_int_parent = compute_nll_bound(graph_int, X_int, order, var_indices=parents) if parents else None
-        bound_int_child = compute_nll_bound(graph_int, X_int, order, var_indices=children) if children else None
+        bound_obs_full = compute_nll_bound(graph, graph_int, X_int, order)
+        bound_obs_intervention = compute_nll_bound(graph, graph_int, X_int, order, var_indices=[gidx])
+        bound_obs_root = compute_nll_bound(graph, graph_int, X_int, order, var_indices=roots) if roots else None
+        bound_obs_leaf = compute_nll_bound(graph, graph_int, X_int, order, var_indices=leaves) if leaves else None
+        bound_obs_ancestor = compute_nll_bound(graph, graph_int, X_int, order, var_indices=ancestors) if ancestors else None
+        bound_obs_descendant = compute_nll_bound(graph, graph_int, X_int, order, var_indices=descendants) if descendants else None
+        bound_obs_parent = compute_nll_bound(graph, graph_int, X_int, order, var_indices=parents) if parents else None
+        bound_obs_child = compute_nll_bound(graph, graph_int, X_int, order, var_indices=children) if children else None
 
-        results[f'bound_{var_name}_full'] = bound_int_full
-        results[f'bound_{var_name}_intervention'] = bound_int_intervention
-        results[f'bound_{var_name}_root'] = bound_int_root
-        results[f'bound_{var_name}_leaf'] = bound_int_leaf
-        results[f'bound_{var_name}_ancestor'] = bound_int_ancestor
-        results[f'bound_{var_name}_descendant'] = bound_int_descendant
-        results[f'bound_{var_name}_parent'] = bound_int_parent
-        results[f'bound_{var_name}_child'] = bound_int_child
+        bound_int_full = compute_nll_bound(graph_int, graph_int, X_int, order)
+        bound_int_intervention = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=[gidx])
+        bound_int_root = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=roots) if roots else None
+        bound_int_leaf = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=leaves) if leaves else None
+        bound_int_ancestor = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=ancestors) if ancestors else None
+        bound_int_descendant = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=descendants) if descendants else None
+        bound_int_parent = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=parents) if parents else None
+        bound_int_child = compute_nll_bound(graph_int, graph_int, X_int, order, var_indices=children) if children else None
+
+        results[f'bound_obs_{var_name}_full'] = bound_obs_full
+        results[f'bound_obs_{var_name}_intervention'] = bound_obs_intervention
+        results[f'bound_obs_{var_name}_root'] = bound_obs_root
+        results[f'bound_obs_{var_name}_leaf'] = bound_obs_leaf
+        results[f'bound_obs_{var_name}_ancestor'] = bound_obs_ancestor
+        results[f'bound_obs_{var_name}_descendant'] = bound_obs_descendant
+        results[f'bound_obs_{var_name}_parent'] = bound_obs_parent
+        results[f'bound_obs_{var_name}_child'] = bound_obs_child
+
+        results[f'bound_int_{var_name}_full'] = bound_int_full
+        results[f'bound_int_{var_name}_intervention'] = bound_int_intervention
+        results[f'bound_int_{var_name}_root'] = bound_int_root
+        results[f'bound_int_{var_name}_leaf'] = bound_int_leaf
+        results[f'bound_int_{var_name}_ancestor'] = bound_int_ancestor
+        results[f'bound_int_{var_name}_descendant'] = bound_int_descendant
+        results[f'bound_int_{var_name}_parent'] = bound_int_parent
+        results[f'bound_int_{var_name}_child'] = bound_int_child
 
         inter_vars = list(dataset.get('interventional', {}).keys())
-        for subset in ('full', 'intervention', 'root', 'leaf', 'ancestor', 'descendant', 'parent', 'child'):
-            key = f"bound_all_{subset}"
-            vals = []
-            for v in inter_vars:
-                k = f"bound_{v}_{subset}"
-                if k in results and results[k] is not None:
-                    vals.append(results[k])
-            if vals:
-                results[key] = np.mean([v.cpu().numpy() if isinstance(v, torch.Tensor) else v for v in vals])
+        for metric in ('bound_obs', 'bound_int'):
+            for subset in ('full', 'intervention', 'root', 'leaf', 'ancestor', 'descendant', 'parent', 'child'):
+                key = f"{metric}_all_{subset}"
+                vals = []
+                for v in inter_vars:
+                    k = f"{metric}_{v}_{subset}"
+                    if k in results and results[k] is not None:
+                        vals.append(results[k])
+                if vals:
+                    results[key] = np.mean([v.cpu().numpy() if isinstance(v, torch.Tensor) else v for v in vals])
 
     return results    
 
@@ -201,6 +231,7 @@ def evaluate_few_shot(
     Returns a dict with per‑regime NLL, for the list of shots and the given 
     number of gradient steps.
     """
+    S = few_shot_gradient_steps
     results = {}
     node_relations, one_hop_relations, global_roles, in_degrees, out_degrees, total_degrees =\
         graph.node_relations
@@ -216,7 +247,9 @@ def evaluate_few_shot(
 
             # if not enough samples error
             if K > N:
-                raise ValueError(f"Not enough samples for {var_name} regime: {N} < {K}")
+                print(f"Not enough samples for {var_name} regime: {N} < {K}")
+                continue
+                # raise ValueError(f"Not enough samples for {var_name} regime: {N} < {K}")
             
             else:
                 finetuned_model = copy.deepcopy(model).to(device).train()
@@ -284,7 +317,6 @@ def evaluate_few_shot(
                     tensor = tensor.cpu().numpy()
                 return tensor
             
-            S = few_shot_gradient_steps
             results[f'raw_pseudo_nll_{var_name}_{S}_shot_{K}_ex_full']         = _to_numpy(raw_nll_full)
             results[f'raw_pseudo_nll_{var_name}_{S}_shot_{K}_ex_intervention'] = _to_numpy(raw_nll_intervention)
             results[f'raw_pseudo_nll_{var_name}_{S}_shot_{K}_ex_root']         = _to_numpy(raw_nll_root)

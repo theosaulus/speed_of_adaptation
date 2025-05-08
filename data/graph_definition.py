@@ -206,7 +206,7 @@ class CausalDAG(object):
                 intervened_graph.adj_matrix[:, v_idx] = False
                 intervened_graph.variables[v_idx].prob_dist = ConstantDist(interventions[v_name])
         intervened_graph.edges = adj_matrix_to_edges(intervened_graph.adj_matrix)
-        intervened_graph._sort_variables()
+        # intervened_graph._sort_variables()
         return intervened_graph
 
     def __str__(self):
