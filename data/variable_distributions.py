@@ -344,7 +344,6 @@ class NNCateg(object):
     def __call__(self, inputs, batch_size):
         inp_tensor = None
         # if len(self.input_names) == 0:
-        #     breakpoint()
         #     inp_tensor = inp_tensor.to(self.device)
         #     inp_tensor = self.embed_module(inp_tensor).flatten(-2, -1)
         #     probs = self.net(inp_tensor).cpu().numpy()
