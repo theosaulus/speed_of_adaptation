@@ -63,6 +63,8 @@ if __name__ == '__main__':
                         help='Number of categories/different values each variable can take.')
     parser.add_argument('--edge_prob', type=float, default=[0.3, 0.7],
                         help='For random graphs, the probability of two arbitrary nodes to be connected.')
+    parser.add_argument('--connected_graphs', action='store_true', default=True,
+                        help='If set, the generated graphs will be connected.')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed for reproducibility.')
     args = parser.parse_args()
@@ -86,11 +88,11 @@ if __name__ == '__main__':
                                                     min_categs=num_categs,
                                                     max_categs=num_categs,
                                                     edge_prob=edge_prob,
-                                                    connected=True,
+                                                    connected=args.connected_graphs,
                                                     use_nn=True,
                                                     graph_func=get_graph_func(args.graph_type),
                                                     seed=seed)
-                    file_id = "%s_%s_%i_%i" % (str(gindex+1).zfill(3), args.graph_type, num_vars, seed)
+                    file_id = "%s_%s_%i_%i_%s" % (str(gindex+1).zfill(3), args.graph_type, num_vars, seed, "connected" if args.connected_graphs else "disconnected")
                     graph.save_to_file(os.path.join(folder, file_id + ".pt"))
                     export_graph(
                         filename=os.path.join(folder, file_id),
