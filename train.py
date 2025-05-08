@@ -6,7 +6,7 @@ import os
 import numpy as np
 
 from trainer.trainer import train_model
-from evaluation.evaluator import evaluate_zero_shot, evaluate_few_shot
+from evaluation.evaluator import evaluate_zero_shot, evaluate_few_shot, evaluate_bounds
 from data.dataset_creation import build_dataset, sample_dict_to_tensor
 from data.graph_export import load_graph
 from data.utils import find_dataset_graph_pairs, set_seed
@@ -24,6 +24,7 @@ def main():
     seed = config.get('seed', 0)
 
     # Set lists of results
+    bounds_list = {}
     results_zero_list = {}
     results_few_list = {}
     
@@ -81,35 +82,49 @@ def main():
 
         # Test
         model.to(device).eval()
-        results_zero = evaluate_zero_shot(
-            model, graph, dataset_test, order, 
-            device=device
-        )
-        results_few = evaluate_few_shot(
-            model, graph, dataset_test, order,
-            few_shot_num_samples=config['evaluation']['few_shot_num_samples'],
-            few_shot_gradient_steps=config['evaluation']['few_shot_gradient_steps'],
-            device=device
-        )
+
+        with torch.no_grad():
+            bounds = evaluate_bounds(
+                graph, dataset_test, order,
+                device=device,
+            )
+            results_zero = evaluate_zero_shot(
+                model, graph, dataset_test, order, 
+                device=device
+            )
+            results_few = evaluate_few_shot(
+                model, graph, dataset_test, order,
+                few_shot_num_samples=config['evaluation']['few_shot_num_samples'],
+                few_shot_gradient_steps=config['evaluation']['few_shot_gradient_steps'],
+                device=device,
+                few_shot_lr=config['evaluation']['few_shot_lr'],
+            )
 
         # Append results to the list
+        bounds_list.update({k: bounds_list.get(k, []) + [v] for k, v in bounds.items()})
         results_zero_list.update({k: results_zero_list.get(k, []) + [v] for k, v in results_zero.items()})
         results_few_list.update({k: results_few_list.get(k, []) + [v] for k, v in results_few.items()})
     
     # Print results
+    bounds_avg = {k: np.mean([x for x in v if x is not None]) for k, v in bounds_list.items() if v and any(x is not None for x in v)}
+    bounds_std = {k: np.std([x for x in v if x is not None]) for k, v in bounds_list.items() if v and any(x is not None for x in v)}
     results_zero_avg = {k: np.mean([x for x in v if x is not None]) for k, v in results_zero_list.items() if v and any(x is not None for x in v)}
-    # results_few_avg = {k: np.mean([x for x in v if x is not None]) for k, v in results_few_list.items() if v and any(x is not None for x in v)}
+    results_few_avg = {k: np.mean([x for x in v if x is not None]) for k, v in results_few_list.items() if v and any(x is not None for x in v)}
     results_zero_std = {k: np.std([x for x in v if x is not None]) for k, v in results_zero_list.items() if v and any(x is not None for x in v)}
-    # results_few_std = {k: np.std([x for x in v if x is not None]) for k, v in results_few_list.items() if v and any(x is not None for x in v)}
+    results_few_std = {k: np.std([x for x in v if x is not None]) for k, v in results_few_list.items() if v and any(x is not None for x in v)}
     
+    print("\n=== Bounds ===")
+    for k, v in bounds_avg.items():
+        if '_all_full' in k or '_all_intervention' in k or '_all_ancestor' in k or '_all_descendant' in k:
+            print(f"{k:15s}: {v:.4f} ± {bounds_std[k]:.4f}")
     print("\n=== Zero-Shot Evaluation ===")
     for k, v in results_zero_avg.items():
-        if '_all_full' in k:
+        if '_all_full' in k or '_all_intervention' in k or '_all_ancestor' in k or '_all_descendant' in k:
             print(f"{k:15s}: {v:.4f} ± {results_zero_std[k]:.4f}")
-    # print("\n=== Few-Shot Evaluation ===")
-    # for k, v in results_few_avg.items():
-    #     if '_all_full' in k:
-    #         print(f"{k:15s}: {v:.4f} ± {results_few_std[k]:.4f}")
+    print("\n=== Few-Shot Evaluation ===")
+    for k, v in results_few_avg.items():
+        if '_all_full' in k or '_all_intervention' in k or '_all_ancestor' in k or '_all_descendant' in k:
+            print(f"{k:15s}: {v:.4f} ± {results_few_std[k]:.4f}")
 
 if __name__ == '__main__':
     main()

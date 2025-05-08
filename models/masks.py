@@ -8,7 +8,7 @@ def fully_connected_mask(num_nodes):
 
 def causal_mask(true_graph):
     # true_graph is a torch.Tensor or numpy array adjacency
-    return torch.tensor(true_graph, dtype=torch.float32)
+    return true_graph.clone().detach().to(torch.float32)
 
 def anti_causal_mask(true_graph):
     return causal_mask(true_graph).transpose(0, 1)

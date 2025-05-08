@@ -91,6 +91,8 @@ class ConstantDist(DiscreteProbDist):
         if isinstance(output, np.ndarray):
             return (output == self.constant).astype(np.float32)
         else:
+            if isinstance(self.constant, torch.Tensor):
+                self.constant = int(self.constant[0])
             return 1 if output == self.constant else 0
 
     def get_state_dict(self):
@@ -108,7 +110,10 @@ class ConstantDist(DiscreteProbDist):
         #     return F.one_hot(self.constant).cpu().numpy()
         # else:
         #     return np.repeat(self.constant.cpu().numpy(), batch_size)
-        return self.constant
+        # TODO: make the val_range not hardcoded as 10 !!
+        one_hot = torch.zeros((batch_size, 10), dtype=torch.int32)
+        one_hot[:, self.constant] = 1
+        return one_hot.cpu().numpy() # (batch_size, num_categs)
 
 class CategoricalDist(DiscreteProbDist):
 
@@ -338,6 +343,14 @@ class NNCateg(object):
     @torch.no_grad()
     def __call__(self, inputs, batch_size):
         inp_tensor = None
+        # if len(self.input_names) == 0:
+        #     breakpoint()
+        #     inp_tensor = inp_tensor.to(self.device)
+        #     inp_tensor = self.embed_module(inp_tensor).flatten(-2, -1)
+        #     probs = self.net(inp_tensor).cpu().numpy()
+        #     probs = np.repeat(probs[None], batch_size, axis=0)
+        #     return probs # (batch_size, num_categs)
+        # else:
         for i, n, categs in zip(range(len(self.input_names)), self.input_names, self.input_num_categs):
             v = torch.from_numpy(inputs[n]).long()+sum(self.input_num_categs[:i])
             v = v.unsqueeze(dim=-1)
@@ -345,7 +358,7 @@ class NNCateg(object):
         inp_tensor = inp_tensor.to(self.device)
         inp_tensor = self.embed_module(inp_tensor).flatten(-2, -1)
         probs = self.net(inp_tensor).cpu().numpy()
-        return probs
+        return probs # (batch_size, num_categs)
 
     def get_state_dict(self):
         state_dict = copy(vars(self))
