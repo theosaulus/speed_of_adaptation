@@ -54,7 +54,8 @@ def build_dataset(graph, num_obs, num_int):
             n_categs = var.prob_dist.num_categs
         except AttributeError:
             n_categs = int(obs_sample[var.name].max()) + 1 # assuming categorical variables are indexed 0, 1, ..., n_categs-1
-        intervention_values = np.random.randint(0, n_categs, size=(num_int,))
+        constant = np.random.randint(0, n_categs)
+        intervention_values = np.full((num_int,), constant)
         int_sample = graph.sample(interventions={var.name: intervention_values},
                                   batch_size=num_int)
         interventional[var.name] = int_sample
