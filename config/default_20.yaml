@@ -1,5 +1,5 @@
 model:
-  mask: "causal"      # Options: "fully_connected", "causal", "anti_causal", "skeleton", "cpdag"
+  mask: "fully_connected"      # Options: "fully_connected", "causal", "anti_causal", "skeleton", "cpdag"
   hidden_units: 64
   
 objective:
@@ -9,7 +9,7 @@ objective:
   maml_first_order: True
 
 data:
-  folder_path: "random_d20_k10_p03"
+  folder_path: "random_d20_k10_p03_disconnected"
   # graph_type: "random"
   # num_graphs: 10
   # num_vars: 10
@@ -23,13 +23,13 @@ training:
   epochs: 1000
   batch_size: 1000
   optimizer: "adam"
-  lr: 0.001
+  lr: 0.01
   
 evaluation:
   compute_bounds: True
   few_shot_num_samples: [1, 3, 10, 30, 100]
-  few_shot_gradient_steps: 3
+  few_shot_gradient_steps: 10
   few_shot_lr: 0.1
 
 seed: 0
-num_seeds: 3
+num_seeds: 2
