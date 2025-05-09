@@ -96,7 +96,7 @@ def train_model(graph, dataset, order, config, device):
                 first_order=first_order,
                 meta_optimizer=meta_optimizer
             )
-            if epoch % 10 == 0:
+            if epoch % 200 == 0:
                 print(f"[Epoch {epoch}] MAML meta-loss: {meta_loss:.4f}")
 
     else:
