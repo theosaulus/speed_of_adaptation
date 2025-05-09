@@ -53,8 +53,12 @@ class CausalCPDModel(MetaModule):
     def forward(self, x, params=None):
         # x: (batch_size, num_vars)
         outputs = []
-        for model in self.cpd_models:
-            logits = model(x, params=params)  # (batch_size, output_dim)
+        for i, model in enumerate(self.cpd_models):
+            if params is not None:
+                sub_params = self.get_subdict(params, f'cpd_models.{i}')
+            else: 
+                sub_params = None
+            logits = model(x, params=sub_params)  # (batch_size, output_dim)
             outputs.append(logits.unsqueeze(1))  # unsqueeze to add the variable dimension
         outputs_cat = torch.cat(outputs, dim=1)  # Concatenate along the variable dimension
         return outputs_cat # (batch_size, num_vars, output_dim)
