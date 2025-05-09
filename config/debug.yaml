@@ -1,9 +1,9 @@
 model:
-  mask: "causal"      # Options: "fully_connected", "causal", "anti_causal", "skeleton", "cpdag"
+  mask: "fully_connected"      # Options: "fully_connected", "causal", "anti_causal", "skeleton", "cpdag"
   hidden_units: 64
   
 objective:
-  type: "pseudo_ll"   # Options: "pseudo_ll", "maml", "irm"
+  type: "maml"   # Options: "pseudo_ll", "maml", "irm"
   inner_lr: 0.1       # For MAML
   inner_steps: 1      # number of inner‐loop steps
   maml_first_order: True
@@ -20,10 +20,10 @@ data:
   num_train_int: 14
 
 training:
-  epochs: 20
+  epochs: 1000
   batch_size: 1000
   optimizer: "adam"
-  lr: 0.001
+  lr: 0.0001
   
 evaluation:
   compute_bounds: True
