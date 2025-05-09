@@ -21,8 +21,9 @@ def tasks_from_dataset(dataset, batch_size, device, order):
     # Observational regime is one task
     obs_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order=order)
     for _ in range(batch_size):  # batch of tasks
-        idx_in = np.random.choice(obs_tensor.size(0), batch_size, replace=False)
-        idx_out = np.random.choice(obs_tensor.size(0), batch_size, replace=False)
+        B = batch_size if batch_size < obs_tensor.size(0) else obs_tensor.size(0)
+        idx_in = np.random.choice(obs_tensor.size(0), B, replace=False)
+        idx_out = np.random.choice(obs_tensor.size(0), B, replace=False)
         tasks.append({
             'inner': obs_tensor[idx_in],
             'outer': obs_tensor[idx_out],
@@ -32,8 +33,9 @@ def tasks_from_dataset(dataset, batch_size, device, order):
     for var_name, sample_dict in dataset['interventional'].items():
         int_tensor, _ = sample_dict_to_tensor(sample_dict, device, order=order)
         for _ in range(batch_size):
-            idx_in = np.random.choice(int_tensor.size(0), batch_size, replace=False)
-            idx_out = np.random.choice(int_tensor.size(0), batch_size, replace=False)
+            B = batch_size if batch_size < int_tensor.size(0) else int_tensor.size(0)
+            idx_in = np.random.choice(int_tensor.size(0), B, replace=False)
+            idx_out = np.random.choice(int_tensor.size(0), B, replace=False)
             tasks.append({
                 'inner': int_tensor[idx_in],
                 'outer': int_tensor[idx_out],
@@ -70,7 +72,8 @@ def train_model(graph, dataset, order, config, device):
 
         for epoch in range(epochs):
             model.train()
-            idx = np.random.choice(data_tensor.size(0), batch_size, replace=False)
+            B = batch_size if batch_size < data_tensor.size(0) else data_tensor.size(0)
+            idx = np.random.choice(data_tensor.size(0), B, replace=False)
             X = data_tensor[idx].to(device)
             loss = pseudo_ll_loss(model, X)
             optimizer.zero_grad()
