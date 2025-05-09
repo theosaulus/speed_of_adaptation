@@ -14,24 +14,56 @@ from data.graph_export import load_graph
 from data.utils import find_dataset_graph_pairs, set_seed
 from data.graph_definition import CausalDAG
 
+def apply_override(config, key_path, value):
+    """
+    Update nested config dict at key_path (list of keys) to the given value (with type inference).
+    """
+    sub = config
+    for k in key_path[:-1]:
+        if k not in sub or not isinstance(sub[k], dict):
+            sub[k] = {}
+        sub = sub[k]
+    # basic type inference: int, float, bool, else string
+    if value.lower() in ('true', 'false'):
+        val = value.lower() == 'true'
+    else:
+        try:
+            val = int(value)
+        except ValueError:
+            try:
+                val = float(value)
+            except ValueError:
+                val = value
+    sub[key_path[-1]] = val
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=True,
                         help='Path to YAML config file')
+    parser.add_argument('-o', '--override', action='append', default=[],
+                        help='Override config entries: key.subkey=value')
     args = parser.parse_args()
-
+    
     # Load configuration
     with io.open(args.config, 'r', encoding='utf-8-sig') as f:
         config = yaml.safe_load(f)
     seed = config.get('seed', 0)
 
-    if config.get('wandb', False):
-        wandb.init(
-            config=config,
-            project="generalization_speed_adaptation",
-            # name=f"{os.path.basename(args.config)}_{int(time.time())}",
-            entity="dhanya-shridar"
-        )
+    for ov in args.override:
+        if '=' not in ov:
+            parser.error(f"Invalid override format '{ov}', expected key.subkey=value")
+        key, value = ov.split('=', 1)
+        key_path = key.split('.')
+        apply_override(config, key_path, value)
+
+    # if config.get('wandb', False):
+    #     wandb.init(
+    #         config=config,
+    #         project="generalization_speed_adaptation",
+    #         # name=f"{os.path.basename(args.config)}_{int(time.time())}",
+    #         entity="dhanya-shridar"
+    #     )
+
     # Set lists of results
     bounds_list = {}
     results_zero_list = {}
@@ -48,6 +80,14 @@ def main():
         num_seeds += 1
         if num_seeds > config['num_seeds']:
             break
+
+        if config.get('wandb', False):
+            wandb.init(
+                config=config,
+                project="generalization_speed_adaptation",
+                # name=f"{os.path.basename(args.config)}_{int(time.time())}",
+                entity="dhanya-shridar"
+            )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {device}")
@@ -112,7 +152,22 @@ def main():
         bounds_list.update({k: bounds_list.get(k, []) + [v] for k, v in bounds.items()})
         results_zero_list.update({k: results_zero_list.get(k, []) + [v] for k, v in results_zero.items()})
         results_few_list.update({k: results_few_list.get(k, []) + [v] for k, v in results_few.items()})
-    
+
+        if config.get('wandb', False):
+            # Log all values for bounds
+            for key, value in bounds.items():
+                if '_all_' in key: wandb.log({f"Bounds/{key}": value})
+
+            # Log all values for zero-shot results
+            for key, value in results_zero.items():
+                if '_all_' in key: wandb.log({f"Zero-Shot/{key}": value})
+
+            # Log all values for few-shot results
+            for key, value in results_few.items():
+                if '_all_' in key: wandb.log({f"Few-Shot/{key}": value})
+
+            wandb.finish()
+
     # Print results
     bounds_avg = {k: np.mean([x for x in v if x is not None]) for k, v in bounds_list.items() if v and any(x is not None for x in v)}
     bounds_std = {k: np.std([x for x in v if x is not None]) for k, v in bounds_list.items() if v and any(x is not None for x in v)}
@@ -136,29 +191,53 @@ def main():
         if '_all_' in k and '10_ex' in k:
             print(f"{k:15s}: {v:.4f} ± {results_few_std[k]:.4f}")
 
-    if config.get('wandb', False):
-        for key, mean in bounds_avg.items():
-            if '_all_' in key:
-                wandb.log({ 
-                    f"Bounds/{key}": mean,
-                    f"Bounds/{key}_min": mean - bounds_std[key],
-                    f"Bounds/{key}_max": mean + bounds_std[key],
-                })
-        for key, mean in results_zero_avg.items():
-            if '_all_' in key:
-                wandb.log({ 
-                    f"Zero-Shot/{key}": mean,
-                    f"Zero-Shot/{key}_min": mean - results_zero_std[key],
-                    f"Zero-Shot/{key}_max": mean + results_zero_std[key],
-                })
-        for key, mean in results_few_avg.items():
-            if '_all_' in key:
-                wandb.log({ 
-                    f"Few-Shot/{key}": mean,
-                    f"Few-Shot/{key}_min": mean - results_few_std[key],
-                    f"Few-Shot/{key}_max": mean + results_few_std[key],
-                })
-        wandb.finish()
+    # if config.get('wandb', False):
+    #     # Log bounds as individual bar plots
+    #     for metric in [k for k in bounds_avg.keys() if '_all_' in k]:
+    #         bounds_df = pd.DataFrame({
+    #             "Statistic": ["Mean", "Std"],
+    #             "Value": [bounds_avg[metric], bounds_std[metric]]
+    #         })
+    #         bounds_table = wandb.Table(dataframe=bounds_df)
+    #         bounds_bar = wandb.plot.bar(
+    #             bounds_table,
+    #             x="Statistic",
+    #             y="Value",
+    #             title=f"Bounds: {metric}"
+    #         )
+    #         wandb.log({f"Bounds/{metric}/BarPlot": bounds_bar})
+
+    #     # Log zero-shot results as individual bar plots
+    #     for metric in [k for k in results_zero_avg.keys() if '_all_' in k]:
+    #         zero_shot_df = pd.DataFrame({
+    #             "Statistic": ["Mean", "Std"],
+    #             "Value": [results_zero_avg[metric], results_zero_std[metric]]
+    #         })
+    #         zero_shot_table = wandb.Table(dataframe=zero_shot_df)
+    #         zero_shot_bar = wandb.plot.bar(
+    #             zero_shot_table,
+    #             x="Statistic",
+    #             y="Value",
+    #             title=f"Zero-Shot: {metric}"
+    #         )
+    #         wandb.log({f"Zero-Shot/{metric}/BarPlot": zero_shot_bar})
+
+    #     # Log few-shot results as individual bar plots
+    #     for metric in [k for k in results_few_avg.keys() if '_all_' in k]:
+    #         few_shot_df = pd.DataFrame({
+    #             "Statistic": ["Mean", "Std"],
+    #             "Value": [results_few_avg[metric], results_few_std[metric]]
+    #         })
+    #         few_shot_table = wandb.Table(dataframe=few_shot_df)
+    #         few_shot_bar = wandb.plot.bar(
+    #             few_shot_table,
+    #             x="Statistic",
+    #             y="Value",
+    #             title=f"Few-Shot: {metric}"
+    #         )
+    #         wandb.log({f"Few-Shot/{metric}/BarPlot": few_shot_bar})
+
+    #     wandb.finish()
 
 if __name__ == '__main__':
     main()
