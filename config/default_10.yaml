@@ -9,14 +9,14 @@ objective:
   maml_first_order: True
 
 data:
-  folder_path: "random_d10_k10_p03_disconnected"
+  folder_path: "random_d10_k10_p07_disconnected2"
   # graph_type: "random"
   # num_graphs: 10
   # num_vars: 10
   # num_categs: 10
   # edge_prob: 0.3
   size_obs: 1000
-  size_int: 1000       # number of interv samples in total
+  size_int: 1000      # number of interv samples in total
   num_train_int: 7
 
 training:
@@ -32,5 +32,5 @@ evaluation:
   few_shot_lr: 0.1
 
 seed: 0
-num_seeds: 2
+num_seeds: 10
 wandb: True

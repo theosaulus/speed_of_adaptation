@@ -100,8 +100,9 @@ def main():
         num_train_int = int(config['data']['num_train_int']) # number of interventions 
 
         dataset = build_dataset(graph, size_obs, size_int // num_train_int)
-        _, order = sample_dict_to_tensor(dataset['observational'], device)
-
+        # _, order = sample_dict_to_tensor(dataset['observational'], device)
+        order = [var.name for var in graph.variables]
+        
         # Split dataset into train and test
         intervention_list = dataset['interventional'].keys()
         train_interventions = list(dataset['observational'].keys())
