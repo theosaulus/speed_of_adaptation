@@ -46,7 +46,7 @@ from data.graph_export import export_graph
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--graph_type', type=str, default='random',
+    parser.add_argument('--graph_type', type=str, default='chain',
                         help='Which graph type to test on. Currently supported are: '
                              'chain, bidiag, collider, jungle, full, regular, random, '
                              'random_max_#N where #N is to be replaced with an integer. '
@@ -57,7 +57,7 @@ if __name__ == '__main__':
                         help='Number of observational samples to generate.')
     parser.add_argument('--num_int', type=int, default=100,
                         help='Number of interventional samples per variable to generate.')
-    parser.add_argument('--num_vars', type=int, default=[10, 20],
+    parser.add_argument('--num_vars', type=int, default=[3],
                         help='Number of variables that the graphs should have.')
     parser.add_argument('--num_categs', type=int, default=[10],
                         help='Number of categories/different values each variable can take.')

@@ -50,7 +50,7 @@ def train_model(graph, dataset, order, config, device):
     # Instantiate the model
     mask = create_mask(graph, config['model']['mask'], device=device)
     model = create_model(
-        mask, 
+        mask, # mask is ordered as graph.variables
         len(graph.variables),
         graph.variables[0].prob_dist.num_categs,
         config['model']['hidden_units'],
@@ -66,9 +66,11 @@ def train_model(graph, dataset, order, config, device):
     if obj_type == 'pseudo_ll':
         optimizer = Adam(model.parameters(), lr=lr)
         data_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order)
-        for var_name, sample_dict in dataset['interventional'].items():
-            int_tensor, _ = sample_dict_to_tensor(sample_dict, device, order)
-            data_tensor = torch.cat((data_tensor, int_tensor), dim=0)
+        # data_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, [var.name for var in graph.variables])
+
+        # for var_name, sample_dict in dataset['interventional'].items():
+        #     int_tensor, _ = sample_dict_to_tensor(sample_dict, device, order)
+        #     data_tensor = torch.cat((data_tensor, int_tensor), dim=0)
 
         for epoch in range(epochs):
             model.train()

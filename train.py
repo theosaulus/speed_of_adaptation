@@ -100,25 +100,29 @@ def main():
         num_train_int = int(config['data']['num_train_int']) # number of interventions 
 
         dataset = build_dataset(graph, size_obs, size_int // num_train_int)
-        _, order = sample_dict_to_tensor(dataset['observational'], device)
+        # _, order = sample_dict_to_tensor(dataset['observational'], device)
+        order = [var.name for var in graph.variables]
 
         # Split dataset into train and test
         intervention_list = dataset['interventional'].keys()
-        train_interventions = list(dataset['observational'].keys())
+        keys_list = list(dataset['observational'].keys())
+        middle_index = len(keys_list) // 2
         train_interventions = [
-            train_interventions[i] for i in torch.randperm(len(train_interventions))[:num_train_int]
+            # train_interventions[i] for i in torch.randperm(len(train_interventions))[:num_train_int]
         ]
-        test_interventions = [var for var in intervention_list if var not in train_interventions]
+        # test_interventions = [var for var in intervention_list if var not in train_interventions]
+        test_interventions = keys_list[middle_index]
 
         dataset_train, dataset_test = {}, {}
 
         dataset_train['observational'] = dataset['observational']
         dataset_train['interventional'] = {}
-        dataset_train['interventional'].update({
-            var: dataset['interventional'][var]
-            for var in intervention_list
-            if var in train_interventions
-        })
+        # print({key: dataset_train['observational'][key][:10] for key in dataset_train['observational'].keys()})
+        # dataset_train['interventional'].update({
+        #     var: dataset['interventional'][var]
+        #     for var in intervention_list
+        #     if var in train_interventions
+        # })
         dataset_test['interventional'] = {}
         dataset_test['interventional'].update({
             var: dataset['interventional'][var]
@@ -152,7 +156,7 @@ def main():
         bounds_list.update({k: bounds_list.get(k, []) + [v] for k, v in bounds.items()})
         results_zero_list.update({k: results_zero_list.get(k, []) + [v] for k, v in results_zero.items()})
         results_few_list.update({k: results_few_list.get(k, []) + [v] for k, v in results_few.items()})
-
+        
         if config.get('wandb', False):
             # Log all values for bounds
             for key, value in bounds.items():
