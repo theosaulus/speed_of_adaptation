@@ -12,6 +12,7 @@ from objectives.pseudo_ll import pseudo_ll_loss
 from objectives.maml import maml_meta_update
 from objectives.irm import irm_loss
 from objectives.vrex import vrex_loss
+from objectives.eqrm import eqrm_loss
 
 def tasks_from_dataset(dataset, batch_size, device, order,
                        k_inner: int = 20) -> list[dict[str, torch.Tensor]]:
@@ -182,7 +183,29 @@ def train_model(graph, dataset, order, config, device):
             optimizer.step()
             if epoch % 200 == 0:
                 print(f"[Epoch {epoch}] V-REx loss: {loss.item():.4f} (var {penalty.item():.4f})")
-    
+
+    elif obj_type == 'eqrm':
+        lambda_pen = config['objective'].get('lambda_penalty', 1.0)
+        tau = config['objective'].get('tau', 0.75)
+        optimizer = Adam(model.parameters(), lr=lr)
+
+        env_batches = []
+        obs_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order)
+        env_batches.append(obs_tensor)
+        for sample_dict in dataset['interventional'].values():
+            int_tensor, _ = sample_dict_to_tensor(sample_dict, device, order)
+            env_batches.append(int_tensor)
+
+        for epoch in range(epochs):
+            loss, penalty, _ = eqrm_loss(
+                model, env_batches, tau=tau, lambda_penalty=lambda_pen
+            )
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if epoch % 200 == 0:
+                print(f"[Epoch {epoch}] EQRM loss: {loss.item():.4f} (penalty {penalty.item():.4f})")
+
     else:
         raise ValueError(f"Unknown objective type: {obj_type}")
 
