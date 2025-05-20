@@ -7,39 +7,78 @@ from data.graph_generation import generate_categorical_graph, get_graph_func
 from data.utils import set_seed
 from models.model_factory import create_model
 from models.masks import create_mask
+
 from objectives.pseudo_ll import pseudo_ll_loss
 from objectives.maml import maml_meta_update
+from objectives.irm import irm_loss
+from objectives.vrex import vrex_loss
 
-
-def tasks_from_dataset(dataset, batch_size, device, order):
+def tasks_from_dataset(dataset, batch_size, device, order,
+                       k_inner: int = 1) -> list[dict[str, torch.Tensor]]:
     """
-    Turn observational + interventional data into a list of tasks,
-    each task being a dict with 'inner' and 'outer' tensors.
+    Build a list of tasks for MAML.
+
+    Args
+    ----
+    dataset     : dict with 'observational' and 'interventional' keys
+    batch_size  : number of tasks per regime (obs + each intervention)
+    device      : torch device
+    order       : list/tuple giving variable order for sample_dict_to_tensor
+    k_inner     : #support examples per task (≥1)
+
+    Returns
+    -------
+    tasks       : list of dicts, each with keys 'inner' and 'outer'
     """
     tasks = []
 
-    # Observational regime is one task
-    obs_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order=order)
-    for _ in range(batch_size):  # batch of tasks
-        B = batch_size if batch_size < obs_tensor.size(0) else obs_tensor.size(0)
-        idx_in = np.random.choice(obs_tensor.size(0), B, replace=False)
-        idx_out = np.random.choice(obs_tensor.size(0), B, replace=False)
-        tasks.append({
-            'inner': obs_tensor[idx_in],
-            'outer': obs_tensor[idx_out],
-        })
+    def split_indices(num_rows: int, k_in: int, num_tasks: int):
+        """
+        Draw  (k_in + 1) * num_tasks  unique rows without replacement
+        if possible; otherwise fall back to with-replacement sampling.
+        """
+        needed = (k_in + 1) * num_tasks
+        if num_rows >= needed:
+            idx = torch.randperm(num_rows, device=device)[:needed]
+        else:
+            idx = torch.randint(0, num_rows, (needed,), device=device)
+            if k_in == 1:
+                inner = idx[:num_tasks]
+                outer = idx[num_tasks:]
+                dup_mask = outer == inner
+                while dup_mask.any():
+                    outer[dup_mask] = torch.randint(
+                        0, num_rows, (dup_mask.sum().item(),), device=device)
+                    dup_mask = outer == inner
+                idx[num_tasks:] = outer
+        return idx.view(num_tasks, k_in + 1)
 
-    # Each intervention regime is another task
-    for var_name, sample_dict in dataset['interventional'].items():
-        int_tensor, _ = sample_dict_to_tensor(sample_dict, device, order=order)
-        for _ in range(batch_size):
-            B = batch_size if batch_size < int_tensor.size(0) else int_tensor.size(0)
-            idx_in = np.random.choice(int_tensor.size(0), B, replace=False)
-            idx_out = np.random.choice(int_tensor.size(0), B, replace=False)
-            tasks.append({
-                'inner': int_tensor[idx_in],
-                'outer': int_tensor[idx_out],
-            })
+    # observational regime
+    obs_tensor, _ = sample_dict_to_tensor(
+        dataset["observational"], device, order
+    )
+    idx_mat = split_indices(len(obs_tensor), k_inner, batch_size)
+    for row in idx_mat:
+        inner_idx, outer_idx = row[:-1], row[-1]
+        tasks.append(
+            {
+                "inner": obs_tensor[inner_idx], # (k_inner, num_vars)
+                "outer": obs_tensor[outer_idx : outer_idx + 1], # (1, num_vars)
+            }
+        )
+
+    # interventional regimes
+    for var_name, sample_dict in dataset["interventional"].items():
+        int_tensor, _ = sample_dict_to_tensor(sample_dict, device, order)
+        idx_mat = split_indices(len(int_tensor), k_inner, batch_size)
+        for row in idx_mat:
+            inner_idx, outer_idx = row[:-1], row[-1]
+            tasks.append(
+                {
+                    "inner": int_tensor[inner_idx],
+                    "outer": int_tensor[outer_idx : outer_idx + 1],
+                }
+            )
 
     return tasks
 
@@ -57,6 +96,7 @@ def train_model(graph, dataset, order, config, device):
         device=device,
     )
     model.to(device)
+    # model = torch.compile(model)
 
     obj_type = config['objective']['type']
     lr = config['training']['lr']
@@ -86,7 +126,7 @@ def train_model(graph, dataset, order, config, device):
         meta_optimizer = Adam(model.parameters(), lr=lr)
         inner_lr = config['objective']['inner_lr']
         inner_steps = config['objective']['inner_steps']
-        first_order = config['objective'].get('first_order', True)
+        first_order = config['objective'].get('maml_first_order', True)
         for epoch in range(epochs):
             tasks = tasks_from_dataset(dataset, batch_size, device, order)
             meta_loss = maml_meta_update(
@@ -99,6 +139,50 @@ def train_model(graph, dataset, order, config, device):
             if epoch % 200 == 0:
                 print(f"[Epoch {epoch}] MAML meta-loss: {meta_loss:.4f}")
 
+    elif obj_type == 'irm':
+        lambda_pen = config['objective'].get('lambda_penalty', 1.0)
+        optimizer  = Adam(model.parameters(), lr=lr)
+
+        env_batches = []
+        data_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order)
+        env_batches.append(data_tensor)
+        for sample_dict in dataset['interventional'].values():
+            int_tensor, _ = sample_dict_to_tensor(sample_dict, device, order)
+            env_batches.append(int_tensor)
+
+        for epoch in range(epochs):
+            model.train()
+            loss, penalty, env_losses = irm_loss(
+                model, env_batches, lambda_penalty=lambda_pen
+            )
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if epoch % 200 == 0:
+                print(f"[Epoch {epoch}] IRM loss: {loss.item():.4f} (pen {penalty.item():.4f})")
+    
+    elif obj_type == 'vrex':
+        lambda_pen = config['objective'].get('lambda_penalty', 1.0)
+        optimizer  = Adam(model.parameters(), lr=lr)
+
+        env_batches = []
+        data_tensor, _ = sample_dict_to_tensor(dataset['observational'], device, order)
+        env_batches.append(data_tensor)
+        for sample_dict in dataset['interventional'].values():
+            int_tensor, _ = sample_dict_to_tensor(sample_dict, device, order)
+            env_batches.append(int_tensor)
+
+        for epoch in range(epochs):
+            model.train()
+            loss, penalty, env_losses = vrex_loss(
+                model, env_batches, lambda_penalty=lambda_pen
+            )
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if epoch % 200 == 0:
+                print(f"[Epoch {epoch}] V-REx loss: {loss.item():.4f} (var {penalty.item():.4f})")
+    
     else:
         raise ValueError(f"Unknown objective type: {obj_type}")
 

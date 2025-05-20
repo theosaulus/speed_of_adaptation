@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from objectives.maml_utils.module import MetaModule
 
 
-class CPDModel(nn.Module):
+class CPDModel(MetaModule):
     def __init__(self, num_vars, num_categs, hidden_units, mask):
         super(CPDModel, self).__init__()
         self.input_dim = num_vars * num_categs
@@ -22,7 +22,18 @@ class CPDModel(nn.Module):
     def forward(self, x, params=None):
         # x: (batch_size, num_vars)
         batch_size = x.size(0)
-        x_onehot = F.one_hot(x.long(), num_classes=self.output_dim).float() # (batch_size, num_vars, num_categs)
+        
+        # Create one-hot encoding using out-of-place operations
+        x_idx = x.long().unsqueeze(-1)  # (batch_size, num_vars, 1)
+        x_onehot = torch.zeros(batch_size, x.size(1), self.output_dim, 
+                             dtype=torch.float32, device=x.device)  # (batch_size, num_vars, num_categs)
+        x_onehot = torch.scatter(
+            x_onehot, 
+            dim=-1,
+            index=x_idx,
+            src=torch.ones_like(x_idx, dtype=torch.float32)
+        )
+        
         x_flat = x_onehot.view(batch_size, -1)  # (batch_size, num_vars * num_categs)
         x_masked = x_flat * self.mask_flat[None, :]
 
@@ -53,16 +64,20 @@ class CausalCPDModel(MetaModule):
     def forward(self, x, params=None):
         # x: (batch_size, num_vars)
         outputs = []
-        for i, model in enumerate(self.cpd_models):
-            if params is not None:
-                sub_params = self.get_subdict(params, f'cpd_models.{i}')
-            else: 
-                sub_params = None
-            logits = model(x, params=sub_params)  # (batch_size, output_dim)
-            outputs.append(logits.unsqueeze(1))  # unsqueeze to add the variable dimension
-        outputs_cat = torch.cat(outputs, dim=1)  # Concatenate along the variable dimension
-        return outputs_cat # (batch_size, num_vars, output_dim)
-
+        # for i, model in enumerate(self.cpd_models):
+        #     if params is not None:
+        #         sub_params = self.get_subdict(params, f'cpd_models.{i}')
+        #     else: 
+        #         sub_params = None
+        #     logits = model(x, params=sub_params)  # (batch_size, output_dim)
+        #     outputs.append(logits.unsqueeze(1))  # unsqueeze to add the variable dimension
+        # outputs_cat = torch.cat(outputs, dim=1)  # Concatenate along the variable dimension
+        # return outputs_cat # (batch_size, num_vars, output_dim)
+        for idx, model in enumerate(self.cpd_models):
+            sub_params = self.get_subdict(params, f'cpd_models.{idx}')
+            logits = model(x, params=sub_params)
+            outputs.append(logits.unsqueeze(1))
+        return torch.cat(outputs, dim=1)
 
 def create_model(mask, num_vars, output_dim, hidden_units, device): 
     """
