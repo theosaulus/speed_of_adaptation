@@ -26,19 +26,21 @@ def irm_penalty(risk: Tensor, dummy: Tensor) -> Tensor:
 
 
 class _ScaledModel(torch.nn.Module):
-    """Wrap an arbitrary model so that its outputs are scaled by dummy.
-
-    The wrapper behaves exactly like the underlying model apart from the
-    element-wise multiplication of its outputs by dummy.
     """
-
-    def __init__(self, base_model: torch.nn.Module, dummy: Tensor):
+    Wrap an arbitrary model so that its outputs are *multiplied* by the
+    dummy scalar.  The dummy lives outside the parameter list, so the optimiser
+    never updates it, but it still participates in autograd.
+    """
+    def __init__(self, base_model: torch.nn.Module, dummy: torch.Tensor):
         super().__init__()
         self.base_model = base_model
         self.dummy = dummy
 
-    def forward(self, x: Tensor, params: Optional[OrderedDict] = None) -> Tensor:
-        return self.base_model(x, params=params) * self.dummy
+    def forward(self, x, params = None) -> Tensor:
+        probs = self.base_model(x, params=params).clamp_min(1e-12)
+        logits = probs.log()
+        scaled_logits = logits * self.dummy
+        return torch.softmax(scaled_logits, dim=-1)
 
 
 def irm_loss(
@@ -73,7 +75,7 @@ def irm_loss(
     env_losses : List of per-environment empirical risks.
     """
     device = env_batches[0].device
-    dummy = torch.tensor(dummy_init, requires_grad=True, device=device)
+    dummy  = torch.tensor(dummy_init, requires_grad=True, device=device)
     scaled_model = _ScaledModel(model, dummy)
 
     env_losses = []
@@ -82,10 +84,11 @@ def irm_loss(
     for x_e in env_batches:
         risk_e = pseudo_ll_loss(scaled_model, x_e, params=params)
         env_losses.append(risk_e)
-        penalties.append(irm_penalty(risk_e, dummy))
+        penalties.append(irm_penalty(risk_e, scaled_model.dummy))
 
     mean_risk = torch.stack(env_losses).mean()
     penalty = torch.stack(penalties).mean()
     total_loss = mean_risk + lambda_penalty * penalty
 
     return total_loss, penalty.detach(), [l.detach() for l in env_losses]
+
