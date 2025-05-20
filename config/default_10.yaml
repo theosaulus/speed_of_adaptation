@@ -3,10 +3,11 @@ model:
   hidden_units: 64
   
 objective:
-  type: "pseudo_ll"   # Options: "pseudo_ll", "maml", "irm"
+  type: "pseudo_ll"   # Options: "pseudo_ll", "maml", "irm", "vrex"
   inner_lr: 0.1       # For MAML
   inner_steps: 1      # number of inner‐loop steps
   maml_first_order: True
+  lambda_penalty: 1.0 # weight for IRM / V-REx penalty
 
 data:
   folder_path: "random_d10_k10_p07_disconnected2"
