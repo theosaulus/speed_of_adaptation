@@ -10,7 +10,7 @@ objective:
   lambda_penalty: 1.0 # weight for IRM / V-REx penalty
 
 data:
-  folder_path: "random_d10_k10_p07_disconnected2"
+  folder_path: "random_d10_k10_p03_disconnected2"
   # graph_type: "random"
   # num_graphs: 10
   # num_vars: 10
