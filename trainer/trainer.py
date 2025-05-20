@@ -14,7 +14,7 @@ from objectives.irm import irm_loss
 from objectives.vrex import vrex_loss
 
 def tasks_from_dataset(dataset, batch_size, device, order,
-                       k_inner: int = 1) -> list[dict[str, torch.Tensor]]:
+                       k_inner: int = 20) -> list[dict[str, torch.Tensor]]:
     """
     Build a list of tasks for MAML.
 
@@ -122,7 +122,7 @@ def train_model(graph, dataset, order, config, device):
             if epoch % 200 == 0:
                 print(f"[Epoch {epoch}] Pseudo-LL loss: {loss.item():.4f}")
 
-    elif obj_type == 'maml':
+    elif obj_type == 'maml': # Careful with the MAML objective: use lower batch-size
         meta_optimizer = Adam(model.parameters(), lr=lr)
         inner_lr = config['objective']['inner_lr']
         inner_steps = config['objective']['inner_steps']
