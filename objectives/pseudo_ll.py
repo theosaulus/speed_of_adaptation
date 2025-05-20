@@ -9,14 +9,12 @@ def pseudo_ll_loss(model, x, params=None, var_indices=None):
       - params: an OrderedDict of parameters (if None, the model's own parameters are used).
       - var_indices: optional iterable of variable indices to include; if None, uses all variables.
     """
-    outputs = model(x, params=params)  # (batch_size, num_vars, output_dim)
-    loss = 0.0
-    num_vars = outputs.shape[1]
+    outputs = model(x, params=params)            # (B,N,K)
+
     if var_indices is None:
-        var_indices = range(num_vars)
-    for i in var_indices:
-        probs = outputs[:, i, :]
-        logp = (probs + 1e-12).log()
-        target = x[:, i].long()
-        loss += F.nll_loss(logp, target)
-    return loss / float(len(list(var_indices)))
+        var_indices = range(outputs.size(1))
+
+    outputs = outputs[:, var_indices, :]         # (B,|V|,K)
+    logp = (outputs + 1e-12).log().flatten(0,1)  # (B*|V|,K)
+    target = x[:, var_indices].reshape(-1)       # (B*|V|)
+    return F.nll_loss(logp, target)
