@@ -9,6 +9,7 @@ objective:
   maml_first_order: True
   lambda_penalty: 1.0 # weight for IRM / V-REx penalty
   eqrm_tau: 0.75 # tau for EQRM
+  eqrm_icdf: "none" # Options: "none", "normal"
 
 data:
   folder_path: "random_d10_k10_p03_disconnected2"

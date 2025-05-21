@@ -186,7 +186,8 @@ def train_model(graph, dataset, order, config, device):
 
     elif obj_type == 'eqrm':
         lambda_pen = config['objective'].get('lambda_penalty', 1.0)
-        tau = config['objective'].get('tau', 0.75)
+        tau = config['objective'].get('eqrm_tau', 0.75)
+        icdf = config['objective'].get('eqrm_icdf', "normal")
         optimizer = Adam(model.parameters(), lr=lr)
 
         env_batches = []
@@ -197,14 +198,14 @@ def train_model(graph, dataset, order, config, device):
             env_batches.append(int_tensor)
 
         for epoch in range(epochs):
-            loss, penalty, _ = eqrm_loss(
-                model, env_batches, tau=tau, lambda_penalty=lambda_pen
+            loss, _ = eqrm_loss(
+                model, env_batches, tau=tau, icdf=icdf
             )
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             if epoch % 200 == 0:
-                print(f"[Epoch {epoch}] EQRM loss: {loss.item():.4f} (penalty {penalty.item():.4f})")
+                print(f"[Epoch {epoch}] EQRM loss: {loss.item():.4f}")
 
     else:
         raise ValueError(f"Unknown objective type: {obj_type}")

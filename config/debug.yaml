@@ -7,8 +7,9 @@ objective:
   inner_lr: 0.1       # For MAML
   inner_steps: 1      # number of inner‐loop steps
   maml_first_order: True
-  lambda_penalty: 10 # weight for IRM / V-REx / EQRM penalty
-  eqrm_tau: 0.75 # tau for EQRM
+  lambda_penalty: 10 # weight for IRM / V-REx penalty
+  eqrm_tau: 0.95 # tau for EQRM
+  eqrm_icdf: "none" # Options: "none", "normal"
 
 data:
   folder_path: "random_d20_k10_p03_disconnected"
@@ -23,7 +24,7 @@ data:
 
 training:
   epochs: 1000
-  batch_size: 256
+  batch_size: 32
   optimizer: "adam"
   lr: 0.0001
   
